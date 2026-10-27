@@ -1,25 +1,59 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { api, type ApiAchievement, type ApiStudent } from "./api";
 
 type Role = "admin" | "guru";
 type Page = "dashboard" | "students" | "teachers" | "classes" | "subjects" | "assignments" | "grades" | "attendance" | "achievements" | "monitoring" | "reports" | "security" | "help";
-type Student = { id: number; nis: string; name: string; className: string; status: string; current: number; previous: number; attendance: number; achievements: number };
+type Student = { id: string; nis: string; name: string; className: string; classId?: string; status: string; current: number; previous: number; attendance: number; achievements: number };
 type Achievement = { id: number; student: string; name: string; field: string; level: string; date: string; result: string; status: "Menunggu Verifikasi" | "Perlu Revisi" | "Terverifikasi"; note?: string };
 type Toast = { type: "success" | "error"; message: string } | null;
 
 const studentsSeed: Student[] = [
-  { id: 1, nis: "2024001", name: "Aulia Rahma", className: "Kelas A", status: "Aktif", current: 88, previous: 84, attendance: 96, achievements: 1 },
-  { id: 2, nis: "2024002", name: "Fikri Ramadhan", className: "Kelas A", status: "Aktif", current: 72, previous: 81, attendance: 92, achievements: 0 },
-  { id: 3, nis: "2024003", name: "Nabila Putri", className: "Kelas A", status: "Aktif", current: 86, previous: 83, attendance: 76, achievements: 1 },
-  { id: 4, nis: "2024004", name: "Rizky Maulana", className: "Kelas B", status: "Aktif", current: 79, previous: 77, attendance: 88, achievements: 0 },
-  { id: 5, nis: "2024005", name: "Siti Khadijah", className: "Kelas B", status: "Aktif", current: 91, previous: 87, attendance: 100, achievements: 1 },
-  { id: 6, nis: "2024006", name: "Daffa Alfarizi", className: "Kelas C", status: "Aktif", current: 75, previous: 78, attendance: 72, achievements: 0 },
+  { id: "demo-1", nis: "2024001", name: "Aulia Rahma", className: "Kelas A", status: "Aktif", current: 88, previous: 84, attendance: 96, achievements: 1 },
+  { id: "demo-2", nis: "2024002", name: "Fikri Ramadhan", className: "Kelas A", status: "Aktif", current: 72, previous: 81, attendance: 92, achievements: 0 },
+  { id: "demo-3", nis: "2024003", name: "Nabila Putri", className: "Kelas A", status: "Aktif", current: 86, previous: 83, attendance: 76, achievements: 1 },
+  { id: "demo-4", nis: "2024004", name: "Rizky Maulana", className: "Kelas B", status: "Aktif", current: 79, previous: 77, attendance: 88, achievements: 0 },
+  { id: "demo-5", nis: "2024005", name: "Siti Khadijah", className: "Kelas B", status: "Aktif", current: 91, previous: 87, attendance: 100, achievements: 1 },
+  { id: "demo-6", nis: "2024006", name: "Daffa Alfarizi", className: "Kelas C", status: "Aktif", current: 75, previous: 78, attendance: 72, achievements: 0 },
 ];
 
 const achievementsSeed: Achievement[] = [
-  { id: 1, student: "Aulia Rahma", name: "Juara 1 Tahfiz", field: "Keagamaan", level: "Kota", date: "12 Jan 2025", result: "Juara 1", status: "Terverifikasi" },
-  { id: 2, student: "Nabila Putri", name: "Olimpiade Matematika", field: "Akademik", level: "Provinsi", date: "18 Feb 2025", result: "Finalis", status: "Menunggu Verifikasi" },
-  { id: 3, student: "Siti Khadijah", name: "Lomba Pidato", field: "Bahasa", level: "Kota", date: "03 Mar 2025", result: "Juara 2", status: "Perlu Revisi", note: "Mohon unggah sertifikat yang terlihat utuh dan jelas." },
+  { id: "demo-1", student: "Aulia Rahma", name: "Juara 1 Tahfiz", field: "Keagamaan", level: "Kota", date: "12 Jan 2025", result: "Juara 1", status: "Terverifikasi" },
+  { id: "demo-2", student: "Nabila Putri", name: "Olimpiade Matematika", field: "Akademik", level: "Provinsi", date: "18 Feb 2025", result: "Finalis", status: "Menunggu Verifikasi" },
+  { id: "demo-3", student: "Siti Khadijah", name: "Lomba Pidato", field: "Bahasa", level: "Kota", date: "03 Mar 2025", result: "Juara 2", status: "Perlu Revisi", note: "Mohon unggah sertifikat yang terlihat utuh dan jelas." },
 ];
+
+function mapStudent(student: ApiStudent): Student {
+  return {
+    id: student.id,
+    nis: student.nis,
+    name: student.nama,
+    className: student.kelas?.nama || "Belum ditempatkan",
+    classId: student.kelas?.id,
+    status: "Aktif",
+    current: 0,
+    previous: 0,
+    attendance: 0,
+    achievements: 0,
+  };
+}
+
+function mapAchievement(achievement: ApiAchievement): Achievement {
+  const status = achievement.statusVerifikasi === "DIVERIFIKASI"
+    ? "Terverifikasi"
+    : achievement.statusVerifikasi === "DITOLAK"
+      ? "Perlu Revisi"
+      : "Menunggu Verifikasi";
+  return {
+    id: achievement.id,
+    student: achievement.siswa?.nama || "Siswa",
+    name: achievement.judul,
+    field: achievement.bidang,
+    level: achievement.tingkat,
+    date: new Date(achievement.tanggalPerolehan).toLocaleDateString("id-ID"),
+    result: achievement.peringkat || "-",
+    status,
+  };
+}
 
 const adminMenu: { page: Page; label: string; icon: string; group?: string }[] = [
   { page: "dashboard", label: "Dashboard", icon: "grid" },
@@ -98,14 +132,12 @@ function Login({ onLogin }: { onLogin: (role: Role) => void }) {
     e.preventDefault();
     if (!username || !password) return setError("Username dan password wajib diisi.");
     try {
-      const r = await fetch("http://localhost:4000/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: username.includes("@") ? username : `${username}@simpatik.local`, password }) });
-      const j = await r.json();
-      if (!r.ok || !j.success) throw new Error(j?.error?.message || "Login gagal");
-      localStorage.setItem("token", j.data.accessToken);
-      onLogin(j.data.user.role === "ADMIN" ? "admin" : "guru");
+      const user = await api.login(username.includes("@") ? username : `${username}@simpatik.local`, password);
+      localStorage.setItem("user", JSON.stringify(user.user));
+      onLogin(user.user.role === "ADMIN" ? "admin" : "guru");
     } catch (err: any) { setError(err.message || "Username atau password tidak sesuai. Silakan coba kembali."); }
   };
-  const fill = (role: Role) => { setUsername(role); setPassword(role === "admin" ? "admin123" : "guru123"); setError(""); };
+  const fill = (role: Role) => { setUsername(role === "admin" ? "admin@simpatik.local" : "bambang@simpatik.test"); setPassword(role === "admin" ? "admin123" : "password123"); setError(""); };
   return <div className="login-page">
     <div className="login-brand">
       <div className="brand-lockup"><div className="brand-logo">S</div><div><strong>SIMPATIK</strong><span>Yayasan Ishlahul Ummah</span></div></div>
@@ -162,14 +194,14 @@ function Dashboard({ role, students, achievements, go }: { role: Role; students:
 function StudentsPage({ role, students, setStudents, notify }: { role: Role; students: Student[]; setStudents: React.Dispatch<React.SetStateAction<Student[]>>; notify: (m:string)=>void }) {
   const [query,setQuery]=useState(""); const [klass,setKlass]=useState("Semua Kelas"); const [modal,setModal]=useState(false); const [edit,setEdit]=useState<Student|null>(null); const [confirm,setConfirm]=useState<Student|null>(null);
   const filtered=students.filter(s=>(klass==="Semua Kelas"||s.className===klass)&&s.name.toLowerCase().includes(query.toLowerCase()));
-  const save=(e:React.FormEvent<HTMLFormElement>)=>{e.preventDefault(); const f=new FormData(e.currentTarget); const name=String(f.get("name")); const nis=String(f.get("nis")); const className=String(f.get("class")); if(edit)setStudents(x=>x.map(s=>s.id===edit.id?{...s,name,nis,className}:s));else setStudents(x=>[...x,{id:Date.now(),name,nis,className,status:"Aktif",current:0,previous:0,attendance:0,achievements:0}]);setModal(false);setEdit(null);notify("Data siswa berhasil disimpan.");};
+  const save=async(e:React.FormEvent<HTMLFormElement>)=>{e.preventDefault(); const f=new FormData(e.currentTarget); const name=String(f.get("name")); const nis=String(f.get("nis")); const className=String(f.get("class")); try { const classId=students.find(s=>s.className===className)?.classId; const payload={nama:name,nis,kelasId:classId}; const saved=edit?await api.updateStudent(edit.id,payload):await api.createStudent({...payload,jenisKelamin:"LAKI_LAKI",tanggalLahir:"2010-01-01"}); const mapped=mapStudent(saved); setStudents(x=>edit?x.map(s=>s.id===edit.id?mapped:s):[...x,mapped]); setModal(false);setEdit(null);notify("Data siswa berhasil disimpan."); } catch (error) { notify(error instanceof Error?error.message:"Gagal menyimpan data siswa","error"); }};
   return <PageShell eyebrow={role==="admin"?"DATA MASTER":"AKADEMIK"} title={role==="admin"?"Data Siswa":"Siswa Saya"} desc={role==="admin"?"Kelola identitas dan penempatan kelas siswa.":"Siswa dari kelas dan mata pelajaran yang Anda ampu."} action={role==="admin"?<Button icon="plus" onClick={()=>setModal(true)}>Tambah Siswa</Button>:undefined}>
     <div className="card table-card"><div className="filterbar"><div className="search"><Icon name="search"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Cari nama siswa..."/></div><select value={klass} onChange={e=>setKlass(e.target.value)}><option>Semua Kelas</option><option>Kelas A</option><option>Kelas B</option><option>Kelas C</option></select><span className="result-count">{filtered.length} siswa ditemukan</span></div>
       {filtered.length?<div className="table-wrap"><table><thead><tr><th>Siswa</th><th>Nomor Induk</th><th>Kelas</th><th>Status</th><th>Ringkasan</th><th/></tr></thead><tbody>{filtered.map(s=><tr key={s.id}><td><div className="student-cell"><div className="avatar">{s.name.split(" ").map(x=>x[0]).slice(0,2).join("")}</div><strong>{s.name}</strong></div></td><td>{s.nis}</td><td>{s.className}</td><td><Badge status={s.status}/></td><td><span className={s.attendance<80?"danger-text":""}>Nilai {s.current || "—"} · Hadir {s.attendance || "—"}%</span></td><td><div className="row-actions"><button onClick={()=>notify(`Detail ${s.name} dibuka.`)}>Lihat</button>{role==="admin"&&<><button onClick={()=>{setEdit(s);setModal(true)}}>Ubah</button><button className="delete" onClick={()=>setConfirm(s)}>Hapus</button></>}</div></td></tr>)}</tbody></table></div>:<Empty title="Siswa tidak ditemukan" desc="Coba ubah kata kunci atau filter kelas yang digunakan."/>}
       <div className="pagination"><span>Menampilkan 1–{filtered.length} dari {filtered.length} data</span><div><button disabled>‹</button><button className="active">1</button><button disabled>›</button></div></div>
     </div>
     {modal&&<Modal title={edit?"Ubah Data Siswa":"Tambah Siswa"} onClose={()=>{setModal(false);setEdit(null)}} footer={<><Button variant="secondary" onClick={()=>setModal(false)}>Batal</Button><Button type="submit" onClick={()=>document.getElementById("student-form")?.dispatchEvent(new Event("submit",{cancelable:true,bubbles:true}))}>Simpan Data</Button></>}><form id="student-form" onSubmit={save} className="form-grid"><Field label="Nama lengkap"><input name="name" required defaultValue={edit?.name} placeholder="Nama siswa"/></Field><Field label="Nomor induk siswa"><input name="nis" required defaultValue={edit?.nis} placeholder="Contoh: 2024007"/></Field><Field label="Penempatan kelas"><select name="class" defaultValue={edit?.className||"Kelas A"}><option>Kelas A</option><option>Kelas B</option><option>Kelas C</option></select></Field><Field label="Status"><select disabled><option>Aktif</option></select></Field></form></Modal>}
-    {confirm&&<Modal title="Hapus data siswa?" onClose={()=>setConfirm(null)} footer={<><Button variant="secondary" onClick={()=>setConfirm(null)}>Batal</Button><Button variant="danger" onClick={()=>{setStudents(x=>x.filter(s=>s.id!==confirm.id));setConfirm(null);notify("Data siswa berhasil dihapus.")}}>Ya, Hapus</Button></>}><div className="confirm-content"><div className="confirm-icon"><Icon name="alert"/></div><p>Data <strong>{confirm.name}</strong> akan dihapus. Tindakan ini tidak dapat dibatalkan.</p></div></Modal>}
+    {confirm&&<Modal title="Hapus data siswa?" onClose={()=>setConfirm(null)} footer={<><Button variant="secondary" onClick={()=>setConfirm(null)}>Batal</Button><Button variant="danger" onClick={async()=>{try { await api.deleteStudent(confirm.id); setStudents(x=>x.filter(s=>s.id!==confirm.id));setConfirm(null);notify("Data siswa berhasil dihapus.") } catch(error) { notify(error instanceof Error?error.message:"Gagal menghapus siswa","error"); }}}>Ya, Hapus</Button></>}><div className="confirm-content"><div className="confirm-icon"><Icon name="alert"/></div><p>Data <strong>{confirm.name}</strong> akan dihapus. Tindakan ini tidak dapat dibatalkan.</p></div></Modal>}
   </PageShell>;
 }
 
@@ -185,8 +217,8 @@ function MasterPage({ type, notify }: { type: "teachers"|"classes"|"subjects"|"a
 }
 
 function GradesPage({ students, setStudents, notify }: { students:Student[];setStudents:React.Dispatch<React.SetStateAction<Student[]>>;notify:(m:string)=>void }) {
-  const scoped=students.filter(s=>s.className==="Kelas A"); const [values,setValues]=useState<Record<number,string>>(()=>Object.fromEntries(scoped.map(s=>[s.id,String(s.current)]))); const [dirty,setDirty]=useState(false); const [errors,setErrors]=useState<number[]>([]);
-  const save=()=>{const bad=Object.entries(values).filter(([,v])=>Number(v)<0||Number(v)>100||v==="").map(([k])=>Number(k));if(bad.length){setErrors(bad);return;}setStudents(x=>x.map(s=>values[s.id]!==undefined?{...s,current:Number(values[s.id])}:s));setDirty(false);setErrors([]);notify("Nilai berhasil disimpan dan monitoring diperbarui.");};
+  const scoped=students.filter(s=>s.className==="Kelas A"); const [values,setValues]=useState<Record<string,string>>(()=>Object.fromEntries(scoped.map(s=>[s.id,String(s.current)]))); const [dirty,setDirty]=useState(false); const [errors,setErrors]=useState<string[]>([]);
+  const save=()=>{const bad=Object.entries(values).filter(([,v])=>Number(v)<0||Number(v)>100||v==="").map(([k])=>k);if(bad.length){setErrors(bad);return;}setStudents(x=>x.map(s=>values[s.id]!==undefined?{...s,current:Number(values[s.id])}:s));setDirty(false);setErrors([]);notify("Nilai berhasil disimpan dan monitoring diperbarui.");};
   const avg=Math.round(Object.values(values).reduce((a,v)=>a+(Number(v)||0),0)/scoped.length*10)/10;
   return <PageShell eyebrow="PENILAIAN AKADEMIK" title="Input Nilai" desc="Isi dan perbarui nilai sesuai penugasan Anda." action={dirty?<span className="unsaved"><span/>Perubahan belum disimpan</span>:undefined}>
     <div className="card filters-panel"><div className="three-filters"><Field label="Kelas"><select><option>Kelas A</option><option>Kelas B</option></select></Field><Field label="Mata pelajaran"><select><option>Matematika</option><option>IPA</option></select></Field><Field label="Periode"><select><option>Semester Genap · PTS</option><option>Semester Genap · Tugas 1</option></select></Field></div><div className="assumption"><Icon name="help"/><span>Asumsi prototipe: nilai menggunakan rentang 0–100 dan rata-rata aritmetika. Bobot final perlu dikonfirmasi.</span></div></div>
@@ -197,7 +229,7 @@ function GradesPage({ students, setStudents, notify }: { students:Student[];setS
 }
 
 function AttendancePage({ students, setStudents, notify }: { students:Student[];setStudents:React.Dispatch<React.SetStateAction<Student[]>>;notify:(m:string)=>void }) {
-  const scoped=students.filter(s=>s.className==="Kelas A"); const [tab,setTab]=useState("Catat Kehadiran"); const [statuses,setStatuses]=useState<Record<number,string>>({});
+  const scoped=students.filter(s=>s.className==="Kelas A"); const [tab,setTab]=useState("Catat Kehadiran"); const [statuses,setStatuses]=useState<Record<string,string>>({});
   const counts=["Hadir","Sakit","Izin","Alpa"].map(k=>({k,n:Object.values(statuses).filter(x=>x===k).length}));
   const save=()=>{setStudents(x=>x.map(s=>statuses[s.id]?{...s,attendance:statuses[s.id]==="Hadir"?Math.min(100,s.attendance+1):Math.max(0,s.attendance-2)}:s));notify("Kehadiran berhasil disimpan dan rekap diperbarui.");};
   return <PageShell eyebrow="AKADEMIK" title="Kehadiran Siswa" desc="Catat kehadiran per pertemuan dengan cepat dan akurat.">
@@ -258,7 +290,7 @@ function ReportsPage({ role, students, notify }: { role:Role;students:Student[];
 
 function SecurityPage({ role, logout, notify }: { role:Role;logout:()=>void;notify:(m:string)=>void }) {
   const [old,setOld]=useState("");const [next,setNext]=useState("");const [confirm,setConfirm]=useState("");const [error,setError]=useState("");
-  const save=(e:React.FormEvent)=>{e.preventDefault();if(old!==(role==="admin"?"admin123":"guru123"))return setError("Password lama yang Anda masukkan tidak sesuai.");if(next!==confirm)return setError("Konfirmasi password baru tidak cocok.");if(next.length<8)return setError("Password baru minimal 8 karakter.");setError("");setOld("");setNext("");setConfirm("");notify("Password berhasil diubah.");};
+  const save=async(e:React.FormEvent)=>{e.preventDefault();if(next!==confirm)return setError("Konfirmasi password baru tidak cocok.");if(next.length<8||!/[a-zA-Z]/.test(next)||!/[0-9]/.test(next))return setError("Password baru minimal 8 karakter dan memuat huruf serta angka.");try { await api.changePassword(old,next);setError("");setOld("");setNext("");setConfirm("");notify("Password berhasil diubah."); } catch(error) { setError(error instanceof Error?error.message:"Gagal mengubah password."); }};
   return <PageShell eyebrow="PENGATURAN" title="Akun dan Keamanan" desc="Kelola informasi akun dan keamanan akses Anda."><div className="settings-grid"><div className="card account-card"><div className="profile-head"><div className="avatar profile">{role==="admin"?"RA":"AS"}</div><div><h2>{role==="admin"?"Rahmi Ananda":"Andi Saputra, S.Pd."}</h2><p>{role==="admin"?"Administrator Sistem":"Guru Matematika dan IPA"}</p><Badge status={role==="admin"?"Admin":"Guru"}/></div></div><div className="account-info"><div><span>Username</span><strong>{role==="admin"?"admin":"guru"}</strong></div><div><span>Peran</span><strong>{role==="admin"?"Administrator":"Guru"}</strong></div><div><span>Status akun</span><strong>Aktif</strong></div><div><span>Login terakhir</span><strong>24 Feb 2025, 07.42</strong></div></div><Button variant="danger" icon="logout" onClick={logout}>Keluar dari Akun</Button></div><form className="card password-card" onSubmit={save}><div className="card-head"><div><h2>Ubah Password</h2><p>Gunakan kombinasi yang kuat dan mudah Anda ingat.</p></div></div><Field label="Password lama"><input type="password" value={old} onChange={e=>setOld(e.target.value)} required/></Field><Field label="Password baru"><input type="password" value={next} onChange={e=>setNext(e.target.value)} required/><small>Minimal 8 karakter.</small></Field><Field label="Konfirmasi password baru"><input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} required/></Field>{error&&<div className="alert error"><Icon name="alert"/>{error}</div>}<Button type="submit">Simpan Password Baru</Button></form></div></PageShell>;
 }
 
@@ -269,6 +301,25 @@ function PageShell({eyebrow,title,desc,action,children}:{eyebrow:string;title:st
 export default function App() {
   const [role,setRole]=useState<Role|null>(null); const [page,setPage]=useState<Page>("dashboard"); const [students,setStudents]=useState(studentsSeed); const [achievements,setAchievements]=useState(achievementsSeed); const [toast,setToast]=useState<Toast>(null); const [sidebar,setSidebar]=useState(false);
   const notify=(message:string,type:"success"|"error"="success")=>{setToast({message,type});window.setTimeout(()=>setToast(null),3000)};
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    api.me().then((user) => {
+      setRole(user.role === "ADMIN" ? "admin" : "guru");
+    }).catch(() => {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+    });
+  }, []);
+  useEffect(() => {
+    if (!role) return;
+    Promise.all([api.students(), api.achievements()])
+      .then(([remoteStudents, remoteAchievements]) => {
+        setStudents(remoteStudents.map(mapStudent));
+        setAchievements(remoteAchievements.map(mapAchievement));
+      })
+      .catch((error) => notify(error instanceof Error ? error.message : "Gagal memuat data dari server", "error"));
+  }, [role]);
   const menu=role==="admin"?adminMenu:guruMenu; const title=menu.find(x=>x.page===page)?.label||"Dashboard";
   const content=useMemo(()=>{if(!role)return null;switch(page){
     case "dashboard":return <Dashboard role={role} students={students} achievements={achievements} go={setPage}/>;
@@ -279,7 +330,7 @@ export default function App() {
     case "achievements":return <AchievementsPage role={role} achievements={achievements} setAchievements={setAchievements} students={students} notify={notify}/>;
     case "monitoring":return <MonitoringPage students={role==="guru"?students.filter(s=>s.className!=="Kelas C"):students}/>;
     case "reports":return <ReportsPage role={role} students={role==="guru"?students.filter(s=>s.className!=="Kelas C"):students} notify={notify}/>;
-    case "security":return <SecurityPage role={role} logout={()=>{setRole(null);setPage("dashboard")}} notify={notify}/>;
+    case "security":return <SecurityPage role={role} logout={()=>{localStorage.removeItem("token");localStorage.removeItem("user");setRole(null);setPage("dashboard")}} notify={notify}/>;
     default:return <HelpPage/>;
   }},[role,page,students,achievements]);
   if(!role)return <Login onLogin={(r)=>{setRole(r);setPage("dashboard")}}/>;
