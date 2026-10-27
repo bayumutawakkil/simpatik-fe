@@ -1,0 +1,10 @@
+{
+  "description": "Manages academic data for schools enabling admins and teachers to track students, input grades, attendance, and verify achievements efficiently.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
