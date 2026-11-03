@@ -14,6 +14,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   const response = await fetch(`${API_URL}${path}`, { ...init, headers });
   const body = (await response.json()) as ApiResponse<T>;
+  if (response.status === 401) {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    window.dispatchEvent(new Event("simpatik:session-expired"));
+  }
   if (!response.ok || !body.success) {
     throw new Error(body.error?.message || "Permintaan ke server gagal");
   }
@@ -40,11 +45,12 @@ export type ApiAchievement = {
 
 export const api = {
   login: (email: string, password: string) =>
-    request<{ accessToken: string; user: { role: "ADMIN" | "GURU"; name: string; email: string } }>("/auth/login", {
+    request<{ accessToken: string; user: { role: "ADMIN" | "GURU" | "KEPSEK"; name: string; email: string } }>("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),
-  me: () => request<{ id: string; name: string; role: "ADMIN" | "GURU"; email: string }>("/auth/me"),
+  me: () => request<{ id: string; name: string; role: "ADMIN" | "GURU" | "KEPSEK"; email: string }>("/auth/me"),
+  logout: () => request<null>("/auth/logout", { method: "POST" }),
   students: (search = "") =>
     request<ApiStudent[]>(`/siswa?limit=100${search ? `&search=${encodeURIComponent(search)}` : ""}`),
   createStudent: (data: Record<string, unknown>) =>
