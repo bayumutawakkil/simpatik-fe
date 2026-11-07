@@ -9,7 +9,7 @@ export const pages: Page[] = ["dashboard", "students", "teachers", "classes", "s
 export const rolePages: Record<Role, Page[]> = {
   admin: ["dashboard", "students", "teachers", "classes", "subjects", "assignments", "achievements", "monitoring", "reports", "security", "help"],
   guru: ["dashboard", "students", "grades", "attendance", "achievements", "monitoring", "reports", "security", "help"],
-  kepsek: ["grades", "achievements", "reports"],
+  kepsek: ["dashboard", "grades", "monitoring", "achievements", "reports", "security", "help"],
 };
 
 export function canAccessPage(role: Role, page: Page): boolean {

@@ -124,9 +124,13 @@ const guruMenu: typeof adminMenu = [
 ];
 
 const kepsekMenu: typeof adminMenu = [
+  { page: "dashboard", label: "Dashboard", icon: "grid" },
   { page: "grades", label: "Nilai Akademik", icon: "chart", group: "MONITORING AKADEMIK" },
+  { page: "monitoring", label: "Monitoring Siswa", icon: "chart" },
   { page: "achievements", label: "Prestasi", icon: "award" },
   { page: "reports", label: "Laporan", icon: "file" },
+  { page: "security", label: "Akun dan Keamanan", icon: "shield", group: "PENGATURAN" },
+  { page: "help", label: "Bantuan", icon: "help" },
 ];
 
 const rolePages: Record<Role, Page[]> = {
@@ -268,6 +272,7 @@ function StudentsPage({ role, students, setStudents, notify }: { role: Role; stu
   const [modal,setModal]=useState(false);
   const [edit,setEdit]=useState<Student|null>(null);
   const [confirm,setConfirm]=useState<Student|null>(null);
+  const [viewDetail,setViewDetail]=useState<Student|null>(null);
 
   const classesList = useMemo(() => ["Semua Kelas", ...new Set(students.map(s => s.className).filter(Boolean))], [students]);
   const filtered=students.filter(s=>(klass==="Semua Kelas"||s.className===klass)&&s.name.toLowerCase().includes(query.toLowerCase()));
@@ -278,11 +283,12 @@ function StudentsPage({ role, students, setStudents, notify }: { role: Role; stu
     const name=String(f.get("name"));
     const nis=String(f.get("nis"));
     const className=String(f.get("class"));
+    const statusVal=String(f.get("status") || "Aktif");
     try {
       const classId=students.find(s=>s.className===className)?.classId;
       const payload={nama:name,nis,kelasId:classId};
       const saved=edit?await api.updateStudent(edit.id,payload):await api.createStudent({...payload,jenisKelamin:"LAKI_LAKI",tanggalLahir:"2010-01-01"});
-      const mapped=mapStudent(saved);
+      const mapped={ ...mapStudent(saved), status: statusVal };
       setStudents(x=>edit?x.map(s=>s.id===edit.id?mapped:s):[...x,mapped]);
       setModal(false);
       setEdit(null);
@@ -294,54 +300,558 @@ function StudentsPage({ role, students, setStudents, notify }: { role: Role; stu
 
   return <PageShell eyebrow={role==="admin"?"DATA MASTER":"AKADEMIK"} title={role==="admin"?"Data Siswa":"Siswa Saya"} desc={role==="admin"?"Kelola identitas dan penempatan kelas siswa.":"Siswa dari kelas dan mata pelajaran yang Anda ampu."} action={role==="admin"?<Button icon="plus" onClick={()=>setModal(true)}>Tambah Siswa</Button>:undefined}>
     <div className="card table-card"><div className="filterbar"><div className="search"><Icon name="search"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Cari nama siswa..."/></div><select value={klass} onChange={e=>setKlass(e.target.value)}>{classesList.map(c=><option key={c}>{c}</option>)}</select><span className="result-count">{filtered.length} siswa ditemukan</span></div>
-      {filtered.length?<div className="table-wrap"><table><thead><tr><th>Siswa</th><th>Nomor Induk</th><th>Kelas</th><th>Status</th><th>Ringkasan</th><th/></tr></thead><tbody>{filtered.map(s=><tr key={s.id}><td><div className="student-cell"><div className="avatar">{getInitials(s.name)}</div><strong>{s.name}</strong></div></td><td>{s.nis}</td><td>{s.className}</td><td><Badge status={s.status}/></td><td><span className={s.attendance<80?"danger-text":""}>Nilai {s.current || "—"} · Hadir {s.attendance || "—"}%</span></td><td><div className="row-actions"><button onClick={()=>notify(`Detail ${s.name} dibuka.`)}>Lihat</button>{role==="admin"&&<><button onClick={()=>{setEdit(s);setModal(true)}}>Ubah</button><button className="delete" onClick={()=>setConfirm(s)}>Hapus</button></>}</div></td></tr>)}</tbody></table></div>:<Empty title="Siswa tidak ditemukan" desc="Coba ubah kata kunci atau filter kelas yang digunakan."/>}
+      {filtered.length?<div className="table-wrap"><table><thead><tr><th>Siswa</th><th>Nomor Induk</th><th>Kelas</th><th>Status</th><th>Ringkasan</th><th/></tr></thead><tbody>{filtered.map(s=><tr key={s.id}><td><div className="student-cell"><div className="avatar">{getInitials(s.name)}</div><strong>{s.name}</strong></div></td><td>{s.nis}</td><td>{s.className}</td><td><Badge status={s.status}/></td><td><span className={s.attendance<80?"danger-text":""}>Nilai {s.current || "—"} · Hadir {s.attendance || "—"}%</span></td><td><div className="row-actions"><button onClick={()=>setViewDetail(s)}>Lihat</button>{role==="admin"&&<><button onClick={()=>{setEdit(s);setModal(true)}}>Ubah</button><button className="delete" onClick={()=>setConfirm(s)}>Hapus</button></>}</div></td></tr>)}</tbody></table></div>:<Empty title="Siswa tidak ditemukan" desc="Coba ubah kata kunci atau filter kelas yang digunakan."/>}
       <div className="pagination"><span>Menampilkan 1–{filtered.length} dari {filtered.length} data</span><div><button disabled>‹</button><button className="active">1</button><button disabled>›</button></div></div>
     </div>
-    {modal&&<Modal title={edit?"Ubah Data Siswa":"Tambah Siswa"} onClose={()=>{setModal(false);setEdit(null)}} footer={<><Button variant="secondary" onClick={()=>setModal(false)}>Batal</Button><Button type="submit" onClick={()=>document.getElementById("student-form")?.dispatchEvent(new Event("submit",{cancelable:true,bubbles:true}))}>Simpan Data</Button></>}><form id="student-form" onSubmit={save} className="form-grid"><Field label="Nama lengkap"><input name="name" required defaultValue={edit?.name} placeholder="Nama siswa"/></Field><Field label="Nomor induk siswa"><input name="nis" required defaultValue={edit?.nis} placeholder="Contoh: 2024007"/></Field><Field label="Penempatan kelas"><select name="class" defaultValue={edit?.className||classesList.find(c=>c!=="Semua Kelas")||"X IPA 1"}>{classesList.filter(c=>c!=="Semua Kelas").map(c=><option key={c}>{c}</option>)}</select></Field><Field label="Status"><select disabled><option>Aktif</option></select></Field></form></Modal>}
+    {viewDetail&&<Modal title={`Detail Siswa — ${viewDetail.name}`} onClose={()=>setViewDetail(null)} footer={<Button variant="secondary" onClick={()=>setViewDetail(null)}>Tutup</Button>}><div className="student-profile"><div className="profile-head"><div className="avatar large">{getInitials(viewDetail.name)}</div><div><h3>{viewDetail.name}</h3><p>{viewDetail.nis} · {viewDetail.className}</p><Badge status={viewDetail.status}/></div></div><div className="profile-stats"><div><span>Rata-rata Nilai</span><strong>{viewDetail.current}</strong><small className={viewDetail.current<viewDetail.previous?"danger-text":"positive"}>{viewDetail.current-viewDetail.previous>=0?"+":""}{viewDetail.current-viewDetail.previous} poin</small></div><div><span>Kehadiran</span><strong className={viewDetail.attendance<80?"danger-text":""}>{viewDetail.attendance}%</strong><small>Target min. 75%</small></div><div><span>Prestasi</span><strong>{viewDetail.achievements}</strong><small>Terverifikasi</small></div></div><div className="detail-grid" style={{marginTop:"1rem"}}><div><span>Nomor Induk Siswa (NIS)</span><strong>{viewDetail.nis}</strong></div><div><span>Rombongan Belajar (Kelas)</span><strong>{viewDetail.className}</strong></div><div><span>Tahun Ajaran / Semester</span><strong>2024/2025 · Genap</strong></div><div><span>Status Capaian</span><strong>{viewDetail.current>=75?"Tuntas (Memenuhi KKM)":"Perlu Bimbingan Tambahan"}</strong></div></div></div></Modal>}
+    {modal&&<Modal title={edit?"Ubah Data Siswa":"Tambah Siswa"} onClose={()=>{setModal(false);setEdit(null)}} footer={<><Button variant="secondary" onClick={()=>setModal(false)}>Batal</Button><Button type="submit" onClick={()=>document.getElementById("student-form")?.dispatchEvent(new Event("submit",{cancelable:true,bubbles:true}))}>Simpan Data</Button></>}><form id="student-form" onSubmit={save} className="form-grid"><Field label="Nama lengkap siswa"><input name="name" required defaultValue={edit?.name} placeholder="Nama siswa"/></Field><Field label="Nomor Induk Siswa (NIS)"><input name="nis" required defaultValue={edit?.nis} placeholder="Contoh: 2024007"/></Field><Field label="Penempatan kelas"><select name="class" defaultValue={edit?.className||classesList.find(c=>c!=="Semua Kelas")||"X IPA 1"}>{classesList.filter(c=>c!=="Semua Kelas").map(c=><option key={c}>{c}</option>)}</select></Field><Field label="Status"><select name="status" defaultValue={edit?.status || "Aktif"}><option value="Aktif">Aktif</option><option value="Non-Aktif">Non-Aktif</option><option value="Mutasi">Mutasi</option></select></Field></form></Modal>}
     {confirm&&<Modal title="Hapus data siswa?" onClose={()=>setConfirm(null)} footer={<><Button variant="secondary" onClick={()=>setConfirm(null)}>Batal</Button><Button variant="danger" onClick={async()=>{try { await api.deleteStudent(confirm.id); setStudents(x=>x.filter(s=>s.id!==confirm.id));setConfirm(null);notify("Data siswa berhasil dihapus.") } catch(error) { notify(error instanceof Error?error.message:"Gagal menghapus siswa","error"); }}}>Ya, Hapus</Button></>}><div className="confirm-content"><div className="confirm-icon"><Icon name="alert"/></div><p>Data <strong>{confirm.name}</strong> akan dihapus. Tindakan ini tidak dapat dibatalkan.</p></div></Modal>}
   </PageShell>;
 }
 
 function MasterPage({ type, notify }: { type: "teachers"|"classes"|"subjects"|"assignments"; notify:(m:string)=>void }) {
-  const config={
-    teachers:{eyebrow:"DATA MASTER",title:"Guru dan Akun",desc:"Kelola data guru, kredensial, dan ringkasan penugasan.",button:"Tambah Guru",heads:["Guru","Identitas Guru","Username","Penugasan"],rows:[["Bambang Sudarmanto, M.Pd.","GR-001","bambang@simpatik.test","2 kelas · 1 mapel"],["Siti Rahmawati, S.Si.","GR-002","siti.rahmawati@simpatik.test","2 kelas · 1 mapel"],["M. Ridwan, S.Ag.","GR-003","m.ridwan@simpatik.test","1 kelas · 1 mapel"]]},
-    classes:{eyebrow:"DATA MASTER",title:"Data Kelas",desc:"Kelola kelas, siswa, dan guru yang mengajar.",button:"Tambah Kelas",heads:["Nama Kelas","Jumlah Siswa","Guru Mengajar","Status"],rows:[["X IPA 1","3 siswa","Bambang S. (Wali)","Aktif"],["X IPA 2","2 siswa","Siti R. (Wali)","Aktif"],["X IPS 1","1 siswa","Belum ada wali","Aktif"]]},
-    subjects:{eyebrow:"DATA MASTER",title:"Mata Pelajaran",desc:"Kelola kode dan nama mata pelajaran.",button:"Tambah Mata Pelajaran",heads:["Kode","Mata Pelajaran","Jumlah Penugasan","Status"],rows:[["MTK","Matematika","2 penugasan","Aktif"],["IPA","Ilmu Pengetahuan Alam","2 penugasan","Aktif"],["IND","Bahasa Indonesia","1 penugasan","Aktif"]]},
-    assignments:{eyebrow:"AKSES GURU",title:"Penugasan Guru",desc:"Hubungkan guru, kelas, dan mata pelajaran untuk menentukan akses.",button:"Buat Penugasan",heads:["Guru","Kelas","Mata Pelajaran","Semester"],rows:[["Bambang Sudarmanto, M.Pd.","X IPA 1","Matematika","Genap 2024/2025"],["Bambang Sudarmanto, M.Pd.","X IPA 2","Matematika","Genap 2024/2025"],["Siti Rahmawati, S.Si.","X IPA 1","IPA","Genap 2024/2025"]]}
-  }[type]; const [open,setOpen]=useState(false);
-  return <PageShell eyebrow={config.eyebrow} title={config.title} desc={config.desc} action={<Button icon="plus" onClick={()=>setOpen(true)}>{config.button}</Button>}><div className="card table-card"><div className="filterbar"><div className="search"><Icon name="search"/><input placeholder={`Cari ${config.title.toLowerCase()}...`}/></div><select><option>Semua Status</option><option>Aktif</option></select></div><div className="table-wrap"><table><thead><tr>{config.heads.map(h=><th key={h}>{h}</th>)}<th/></tr></thead><tbody>{config.rows.map((r,i)=><tr key={i}>{r.map((x,j)=><td key={j}>{j===0?<strong>{x}</strong>:j===r.length-1&&x==="Aktif"?<Badge status={x}/>:x}</td>)}<td><div className="row-actions"><button onClick={()=>notify("Detail data dibuka.")}>Lihat</button><button onClick={()=>setOpen(true)}>Ubah</button><button className="delete" onClick={()=>notify("Data masih terhubung dan tidak dapat dihapus.")}>Hapus</button></div></td></tr>)}</tbody></table></div></div>
-  {open&&<Modal title={config.button} onClose={()=>setOpen(false)} footer={<><Button variant="secondary" onClick={()=>setOpen(false)}>Batal</Button><Button onClick={()=>{setOpen(false);notify("Data berhasil disimpan.")}}>Simpan</Button></>}><div className="form-grid"><Field label={type==="assignments"?"Pilih guru":"Nama"}><input placeholder="Masukkan data"/></Field><Field label={type==="assignments"?"Pilih kelas":"Kode / Identitas"}><select><option>Pilih data</option><option>X IPA 1</option><option>X IPA 2</option></select></Field>{type==="assignments"&&<Field label="Mata pelajaran"><select><option>Matematika</option><option>IPA</option></select></Field>}</div></Modal>}</PageShell>;
+  const configs = {
+    teachers: {
+      eyebrow: "DATA MASTER",
+      title: "Guru dan Akun",
+      desc: "Kelola data guru, kredensial, dan ringkasan penugasan.",
+      button: "Tambah Guru",
+      heads: ["Guru", "Identitas Guru", "Username", "Penugasan"],
+      initialRows: [
+        ["Bambang Sudarmanto, M.Pd.", "GR-001", "bambang@simpatik.test", "2 kelas · 1 mapel"],
+        ["Siti Rahmawati, S.Si.", "GR-002", "siti.rahmawati@simpatik.test", "2 kelas · 1 mapel"],
+        ["M. Ridwan, S.Ag.", "GR-003", "m.ridwan@simpatik.test", "1 kelas · 1 mapel"],
+      ],
+    },
+    classes: {
+      eyebrow: "DATA MASTER",
+      title: "Data Kelas",
+      desc: "Kelola kelas, siswa, dan guru yang mengajar.",
+      button: "Tambah Kelas",
+      heads: ["Nama Kelas", "Jumlah Siswa", "Guru Mengajar", "Status"],
+      initialRows: [
+        ["X IPA 1", "3 siswa", "Bambang S. (Wali)", "Aktif"],
+        ["X IPA 2", "2 siswa", "Siti R. (Wali)", "Aktif"],
+        ["X IPS 1", "1 siswa", "Belum ada wali", "Aktif"],
+      ],
+    },
+    subjects: {
+      eyebrow: "DATA MASTER",
+      title: "Mata Pelajaran",
+      desc: "Kelola kode dan nama mata pelajaran kurikulum.",
+      button: "Tambah Mata Pelajaran",
+      heads: ["Kode", "Mata Pelajaran", "Jumlah Penugasan", "Status"],
+      initialRows: [
+        ["MTK", "Matematika", "2 penugasan", "Aktif"],
+        ["IPA", "Ilmu Pengetahuan Alam", "2 penugasan", "Aktif"],
+        ["IND", "Bahasa Indonesia", "1 penugasan", "Aktif"],
+      ],
+    },
+    assignments: {
+      eyebrow: "AKSES GURU",
+      title: "Penugasan Guru",
+      desc: "Hubungkan guru, kelas, dan mata pelajaran untuk menentukan akses penilaian.",
+      button: "Buat Penugasan",
+      heads: ["Guru", "Kelas", "Mata Pelajaran", "Semester"],
+      initialRows: [
+        ["Bambang Sudarmanto, M.Pd.", "X IPA 1", "Matematika", "Genap 2024/2025"],
+        ["Bambang Sudarmanto, M.Pd.", "X IPA 2", "Matematika", "Genap 2024/2025"],
+        ["Siti Rahmawati, S.Si.", "X IPA 1", "IPA", "Genap 2024/2025"],
+      ],
+    },
+  };
+
+  const config = configs[type];
+  const [rows, setRows] = useState<string[][]>(config.initialRows);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("Semua Status");
+  const [modal, setModal] = useState(false);
+  const [editIndex, setEditIndex] = useState<number | null>(null);
+  const [detailRow, setDetailRow] = useState<string[] | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+
+  // Form states tailored per master type
+  const [formValues, setFormValues] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setRows(config.initialRows);
+    setQuery("");
+    setStatusFilter("Semua Status");
+    setModal(false);
+    setEditIndex(null);
+    setDetailRow(null);
+    setConfirmDelete(null);
+  }, [type]);
+
+  const filteredRows = useMemo(() => {
+    return rows.filter((r) => {
+      const matchText = r.some((c) => c.toLowerCase().includes(query.toLowerCase()));
+      if (!matchText) return false;
+      if (statusFilter !== "Semua Status") {
+        return r.some((c) => c === statusFilter);
+      }
+      return true;
+    });
+  }, [rows, query, statusFilter]);
+
+  const openAdd = () => {
+    setEditIndex(null);
+    if (type === "classes") {
+      setFormValues({ name: "", level: "Kelas 10", homeroom: "Bambang Sudarmanto, M.Pd.", status: "Aktif" });
+    } else if (type === "subjects") {
+      setFormValues({ code: "", name: "", group: "Kelompok A (Wajib)", hours: "4 JP / Minggu", status: "Aktif" });
+    } else if (type === "teachers") {
+      setFormValues({ name: "", nip: "", email: "", assignment: "1 kelas · 1 mapel", status: "Aktif" });
+    } else {
+      setFormValues({ teacher: "Bambang Sudarmanto, M.Pd.", className: "X IPA 1", subject: "Matematika", semester: "Genap 2024/2025" });
+    }
+    setModal(true);
+  };
+
+  const openEdit = (row: string[], idx: number) => {
+    setEditIndex(idx);
+    if (type === "classes") {
+      setFormValues({ name: row[0], level: "Kelas 10", homeroom: row[2].replace(" (Wali)", ""), status: row[3] || "Aktif" });
+    } else if (type === "subjects") {
+      setFormValues({ code: row[0], name: row[1], group: "Kelompok A (Wajib)", hours: "4 JP / Minggu", status: row[3] || "Aktif" });
+    } else if (type === "teachers") {
+      setFormValues({ name: row[0], nip: row[1], email: row[2], assignment: row[3] || "1 kelas · 1 mapel", status: "Aktif" });
+    } else {
+      setFormValues({ teacher: row[0], className: row[1], subject: row[2], semester: row[3] || "Genap 2024/2025" });
+    }
+    setModal(true);
+  };
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    let newRow: string[] = [];
+
+    if (type === "classes") {
+      const name = formValues.name?.trim() || "Kelas Baru";
+      const homeroom = formValues.homeroom ? `${formValues.homeroom.split(" ")[0]} (Wali)` : "Belum ada wali";
+      const status = formValues.status || "Aktif";
+      newRow = [name, "0 siswa", homeroom, status];
+    } else if (type === "subjects") {
+      const code = (formValues.code?.trim() || "MPL").toUpperCase();
+      const name = formValues.name?.trim() || "Mata Pelajaran Baru";
+      const status = formValues.status || "Aktif";
+      newRow = [code, name, "0 penugasan", status];
+    } else if (type === "teachers") {
+      const name = formValues.name?.trim() || "Guru Baru";
+      const nip = formValues.nip?.trim() || `GR-00${rows.length + 1}`;
+      const email = formValues.email?.trim() || `${name.toLowerCase().replace(/[^a-z]/g, "")}@simpatik.test`;
+      const assignment = formValues.assignment?.trim() || "1 kelas · 1 mapel";
+      newRow = [name, nip, email, assignment];
+    } else if (type === "assignments") {
+      const teacher = formValues.teacher || "Bambang Sudarmanto, M.Pd.";
+      const className = formValues.className || "X IPA 1";
+      const subject = formValues.subject || "Matematika";
+      const semester = formValues.semester || "Genap 2024/2025";
+      newRow = [teacher, className, subject, semester];
+    }
+
+    if (editIndex !== null) {
+      setRows((prev) => prev.map((r, i) => (i === editIndex ? newRow : r)));
+      notify(`Data ${config.title} berhasil diperbarui.`);
+    } else {
+      setRows((prev) => [...prev, newRow]);
+      notify(`Data ${config.title} berhasil ditambahkan.`);
+    }
+    setModal(false);
+  };
+
+  const handleDelete = (index: number) => {
+    setRows((prev) => prev.filter((_, i) => i !== index));
+    setConfirmDelete(null);
+    notify(`Data ${config.title} berhasil dihapus.`);
+  };
+
+  return (
+    <PageShell
+      eyebrow={config.eyebrow}
+      title={config.title}
+      desc={config.desc}
+      action={<Button icon="plus" onClick={openAdd}>{config.button}</Button>}
+    >
+      <div className="card table-card">
+        <div className="filterbar">
+          <div className="search">
+            <Icon name="search" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={`Cari ${config.title.toLowerCase()}...`}
+            />
+          </div>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option value="Semua Status">Semua Status</option>
+            <option value="Aktif">Aktif</option>
+            <option value="Nonaktif">Nonaktif</option>
+          </select>
+          <span className="result-count">{filteredRows.length} data ditemukan</span>
+        </div>
+        {filteredRows.length ? (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  {config.heads.map((h) => <th key={h}>{h}</th>)}
+                  <th style={{ textAlign: "right" }}>Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRows.map((r, i) => (
+                  <tr key={i}>
+                    {r.map((x, j) => (
+                      <td key={j}>
+                        {j === 0 ? (
+                          <strong>{x}</strong>
+                        ) : j === r.length - 1 && (x === "Aktif" || x === "Nonaktif") ? (
+                          <Badge status={x} />
+                        ) : (
+                          x
+                        )}
+                      </td>
+                    ))}
+                    <td>
+                      <div className="row-actions">
+                        <button onClick={() => setDetailRow(r)}>Lihat</button>
+                        <button onClick={() => openEdit(r, i)}>Ubah</button>
+                        <button className="delete" onClick={() => setConfirmDelete(i)}>Hapus</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <Empty title={`Tidak ada data ${config.title}`} desc="Coba ubah kata kunci pencarian atau tambahkan data baru." />
+        )}
+      </div>
+
+      {/* Modal Detail */}
+      {detailRow && (
+        <Modal
+          title={`Detail ${config.title} — ${detailRow[0]}`}
+          onClose={() => setDetailRow(null)}
+          footer={<Button variant="secondary" onClick={() => setDetailRow(null)}>Tutup</Button>}
+        >
+          <div className="detail-grid">
+            {config.heads.map((head, idx) => (
+              <div key={head}>
+                <span>{head}</span>
+                <strong>{detailRow[idx] || "—"}</strong>
+              </div>
+            ))}
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal Tambah / Ubah */}
+      {modal && (
+        <Modal
+          title={editIndex !== null ? `Ubah ${config.title}` : config.button}
+          onClose={() => setModal(false)}
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setModal(false)}>Batal</Button>
+              <Button type="submit" onClick={() => document.getElementById("master-form")?.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }))}>
+                Simpan
+              </Button>
+            </>
+          }
+        >
+          <form id="master-form" onSubmit={handleSave} className="form-grid">
+            {type === "classes" && (
+              <>
+                <Field label="Nama Kelas">
+                  <input
+                    required
+                    placeholder="Contoh: X IPA 3"
+                    value={formValues.name || ""}
+                    onChange={(e) => setFormValues({ ...formValues, name: e.target.value })}
+                  />
+                </Field>
+                <Field label="Tingkat">
+                  <select
+                    value={formValues.level || "Kelas 10"}
+                    onChange={(e) => setFormValues({ ...formValues, level: e.target.value })}
+                  >
+                    <option value="Kelas 10">Kelas 10 (Fase E)</option>
+                    <option value="Kelas 11">Kelas 11 (Fase F)</option>
+                    <option value="Kelas 12">Kelas 12 (Fase F)</option>
+                  </select>
+                </Field>
+                <Field label="Wali Kelas">
+                  <select
+                    value={formValues.homeroom || "Bambang Sudarmanto, M.Pd."}
+                    onChange={(e) => setFormValues({ ...formValues, homeroom: e.target.value })}
+                  >
+                    <option value="Bambang Sudarmanto, M.Pd.">Bambang Sudarmanto, M.Pd.</option>
+                    <option value="Siti Rahmawati, S.Si.">Siti Rahmawati, S.Si.</option>
+                    <option value="M. Ridwan, S.Ag.">M. Ridwan, S.Ag.</option>
+                    <option value="Belum ada wali">Belum ada wali</option>
+                  </select>
+                </Field>
+                <Field label="Status Kelas">
+                  <select
+                    value={formValues.status || "Aktif"}
+                    onChange={(e) => setFormValues({ ...formValues, status: e.target.value })}
+                  >
+                    <option value="Aktif">Aktif</option>
+                    <option value="Nonaktif">Nonaktif</option>
+                  </select>
+                </Field>
+              </>
+            )}
+
+            {type === "subjects" && (
+              <>
+                <Field label="Kode Mata Pelajaran">
+                  <input
+                    required
+                    placeholder="Contoh: BIO, FIS, EKO"
+                    value={formValues.code || ""}
+                    onChange={(e) => setFormValues({ ...formValues, code: e.target.value })}
+                  />
+                </Field>
+                <Field label="Nama Mata Pelajaran">
+                  <input
+                    required
+                    placeholder="Contoh: Biologi, Fisika"
+                    value={formValues.name || ""}
+                    onChange={(e) => setFormValues({ ...formValues, name: e.target.value })}
+                  />
+                </Field>
+                <Field label="Kategori / Kelompok">
+                  <select
+                    value={formValues.group || "Kelompok A (Wajib)"}
+                    onChange={(e) => setFormValues({ ...formValues, group: e.target.value })}
+                  >
+                    <option value="Kelompok A (Wajib)">Kelompok A (Wajib)</option>
+                    <option value="Kelompok B (Umum)">Kelompok B (Umum)</option>
+                    <option value="Kelompok C (Peminatan)">Kelompok C (Peminatan)</option>
+                    <option value="Muatan Lokal">Muatan Lokal</option>
+                  </select>
+                </Field>
+                <Field label="Beban Jam Pembelajaran">
+                  <select
+                    value={formValues.hours || "4 JP / Minggu"}
+                    onChange={(e) => setFormValues({ ...formValues, hours: e.target.value })}
+                  >
+                    <option value="2 JP / Minggu">2 JP / Minggu</option>
+                    <option value="3 JP / Minggu">3 JP / Minggu</option>
+                    <option value="4 JP / Minggu">4 JP / Minggu</option>
+                  </select>
+                </Field>
+                <Field label="Status">
+                  <select
+                    value={formValues.status || "Aktif"}
+                    onChange={(e) => setFormValues({ ...formValues, status: e.target.value })}
+                  >
+                    <option value="Aktif">Aktif</option>
+                    <option value="Nonaktif">Nonaktif</option>
+                  </select>
+                </Field>
+              </>
+            )}
+
+            {type === "teachers" && (
+              <>
+                <Field label="Nama Lengkap & Gelar">
+                  <input
+                    required
+                    placeholder="Contoh: Ahmad Fauzi, S.Pd."
+                    value={formValues.name || ""}
+                    onChange={(e) => setFormValues({ ...formValues, name: e.target.value })}
+                  />
+                </Field>
+                <Field label="Identitas Guru (NIP / NUPTK)">
+                  <input
+                    required
+                    placeholder="Contoh: GR-004 atau 1985..."
+                    value={formValues.nip || ""}
+                    onChange={(e) => setFormValues({ ...formValues, nip: e.target.value })}
+                  />
+                </Field>
+                <Field label="Email / Username SIMPATIK">
+                  <input
+                    type="email"
+                    required
+                    placeholder="ahmad.fauzi@simpatik.test"
+                    value={formValues.email || ""}
+                    onChange={(e) => setFormValues({ ...formValues, email: e.target.value })}
+                  />
+                </Field>
+                <Field label="Ringkasan Penugasan">
+                  <input
+                    placeholder="Contoh: 2 kelas · 1 mapel"
+                    value={formValues.assignment || ""}
+                    onChange={(e) => setFormValues({ ...formValues, assignment: e.target.value })}
+                  />
+                </Field>
+              </>
+            )}
+
+            {type === "assignments" && (
+              <>
+                <Field label="Pilih Guru">
+                  <select
+                    value={formValues.teacher || "Bambang Sudarmanto, M.Pd."}
+                    onChange={(e) => setFormValues({ ...formValues, teacher: e.target.value })}
+                  >
+                    <option value="Bambang Sudarmanto, M.Pd.">Bambang Sudarmanto, M.Pd.</option>
+                    <option value="Siti Rahmawati, S.Si.">Siti Rahmawati, S.Si.</option>
+                    <option value="M. Ridwan, S.Ag.">M. Ridwan, S.Ag.</option>
+                  </select>
+                </Field>
+                <Field label="Pilih Kelas yang Diampu">
+                  <select
+                    value={formValues.className || "X IPA 1"}
+                    onChange={(e) => setFormValues({ ...formValues, className: e.target.value })}
+                  >
+                    <option value="X IPA 1">X IPA 1</option>
+                    <option value="X IPA 2">X IPA 2</option>
+                    <option value="X IPS 1">X IPS 1</option>
+                  </select>
+                </Field>
+                <Field label="Mata Pelajaran">
+                  <select
+                    value={formValues.subject || "Matematika"}
+                    onChange={(e) => setFormValues({ ...formValues, subject: e.target.value })}
+                  >
+                    <option value="Matematika">Matematika</option>
+                    <option value="IPA">Ilmu Pengetahuan Alam</option>
+                    <option value="Bahasa Indonesia">Bahasa Indonesia</option>
+                    <option value="Bahasa Inggris">Bahasa Inggris</option>
+                  </select>
+                </Field>
+                <Field label="Semester / Tahun Ajaran">
+                  <select
+                    value={formValues.semester || "Genap 2024/2025"}
+                    onChange={(e) => setFormValues({ ...formValues, semester: e.target.value })}
+                  >
+                    <option value="Genap 2024/2025">Genap 2024/2025</option>
+                    <option value="Ganjil 2024/2025">Ganjil 2024/2025</option>
+                  </select>
+                </Field>
+              </>
+            )}
+          </form>
+        </Modal>
+      )}
+
+      {/* Modal Konfirmasi Hapus */}
+      {confirmDelete !== null && (
+        <Modal
+          title={`Hapus data ${config.title}?`}
+          onClose={() => setConfirmDelete(null)}
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setConfirmDelete(null)}>Batal</Button>
+              <Button variant="danger" onClick={() => handleDelete(confirmDelete)}>Ya, Hapus</Button>
+            </>
+          }
+        >
+          <div className="confirm-content">
+            <div className="confirm-icon"><Icon name="alert" /></div>
+            <p>
+              Data <strong>{rows[confirmDelete]?.[0]}</strong> akan dihapus dari daftar {config.title}. Tindakan ini tidak dapat dibatalkan.
+            </p>
+          </div>
+        </Modal>
+      )}
+    </PageShell>
+  );
 }
 
 function GradesPage({ students, setStudents, notify, readOnly = false }: { students:Student[];setStudents:React.Dispatch<React.SetStateAction<Student[]>>;notify:(m:string)=>void;readOnly?:boolean }) {
+  const subjects = ["Matematika", "IPA", "Bahasa Indonesia", "Bahasa Inggris"];
+  const periods = ["Semester Genap · PTS", "Semester Genap · Tugas 1", "Semester Genap · PAS"];
+
   const availableClasses = useMemo(() => {
     const list = [...new Set(students.map(s => s.className).filter(Boolean))];
     return list.length ? list : ["Semua Kelas"];
   }, [students]);
 
   const [selectedClass, setSelectedClass] = useState<string>(availableClasses[0] || "Semua Kelas");
+  const [selectedSubject, setSelectedSubject] = useState<string>("Matematika");
+  const [selectedPeriod, setSelectedPeriod] = useState<string>("Semester Genap · PTS");
+
+  // Persistent store for grades indexed by `${class}__${subject}__${period}__${studentId}`
+  const [scoresStore, setScoresStore] = useState<Record<string, string>>({});
+
   const scoped = useMemo(() => {
     if (selectedClass === "Semua Kelas") return students;
     const f = students.filter(s => s.className === selectedClass);
     return f.length ? f : students;
   }, [students, selectedClass]);
 
-  const [values,setValues]=useState<Record<string,string>>(()=>Object.fromEntries(scoped.map(s=>[s.id,String(s.current)])));
-  const [dirty,setDirty]=useState(false);
-  const [errors,setErrors]=useState<string[]>([]);
+  // Deterministic baseline generator per subject and period so switching actually reflects different data
+  const getInitialScore = (s: Student, sub: string, per: string): string => {
+    const storeKey = `${s.className}__${sub}__${per}__${s.id}`;
+    if (scoresStore[storeKey] !== undefined) return scoresStore[storeKey];
 
+    const hash = (s.nis + sub + per).split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    let val = s.current;
+    if (sub === "IPA") {
+      val = Math.min(97, Math.max(68, s.current + ((hash % 11) - 5)));
+    } else if (sub === "Bahasa Indonesia") {
+      val = Math.min(96, Math.max(72, s.current + ((hash % 9) - 4)));
+    } else if (sub === "Bahasa Inggris") {
+      val = Math.min(95, Math.max(65, s.current + ((hash % 13) - 6)));
+    }
+    if (per.includes("Tugas 1")) {
+      val = Math.min(100, Math.max(65, val + 3));
+    } else if (per.includes("PAS")) {
+      val = Math.min(98, Math.max(60, val - 1));
+    }
+    return String(val);
+  };
+
+  const [values, setValues] = useState<Record<string, string>>(() => {
+    return Object.fromEntries(scoped.map(s => [s.id, getInitialScore(s, "Matematika", "Semester Genap · PTS")]));
+  });
+
+  const [dirty, setDirty] = useState(false);
+  const [errors, setErrors] = useState<string[]>([]);
+
+  // When class, subject, or period changes, recalculate values
   useEffect(() => {
-    setValues(Object.fromEntries(scoped.map(s=>[s.id,String(s.current)])));
-    setDirty(false);
-  }, [selectedClass, scoped]);
-
-  const save=()=>{
-    const bad=Object.entries(values).filter(([,v])=>Number(v)<0||Number(v)>100||v==="").map(([k])=>k);
-    if(bad.length){setErrors(bad);return;}
-    setStudents(x=>x.map(s=>values[s.id]!==undefined?{...s,current:Number(values[s.id])}:s));
+    const nextVals = Object.fromEntries(
+      scoped.map(s => [s.id, getInitialScore(s, selectedSubject, selectedPeriod)])
+    );
+    setValues(nextVals);
     setDirty(false);
     setErrors([]);
-    notify("Nilai berhasil disimpan dan monitoring diperbarui.");
+  }, [selectedClass, selectedSubject, selectedPeriod, scoped]);
+
+  const save = () => {
+    const bad = Object.entries(values).filter(([, v]) => Number(v) < 0 || Number(v) > 100 || v === "").map(([k]) => k);
+    if (bad.length) {
+      setErrors(bad);
+      return;
+    }
+
+    // Save into local subject scores store
+    const updatedStore = { ...scoresStore };
+    scoped.forEach(s => {
+      const storeKey = `${s.className}__${selectedSubject}__${selectedPeriod}__${s.id}`;
+      if (values[s.id] !== undefined) {
+        updatedStore[storeKey] = values[s.id];
+      }
+    });
+    setScoresStore(updatedStore);
+
+    // If saving active main subject (Matematika / current semester), also sync to students state
+    if (selectedSubject === "Matematika" && selectedPeriod.includes("PTS")) {
+      setStudents(x => x.map(s => values[s.id] !== undefined ? { ...s, current: Number(values[s.id]) } : s));
+    }
+
+    setDirty(false);
+    setErrors([]);
+    notify(`Nilai ${selectedSubject} (${selectedPeriod}) berhasil disimpan.`);
   };
 
   const numVals = Object.values(values).map(Number).filter(v => !isNaN(v));
@@ -350,16 +860,143 @@ function GradesPage({ students, setStudents, notify, readOnly = false }: { stude
   const minVal = numVals.length ? Math.min(...numVals) : 0;
   const tuntasCount = numVals.filter(v => v >= 75).length;
 
-  return <PageShell eyebrow="PENILAIAN AKADEMIK" title={readOnly ? "Data Nilai" : "Input Nilai"} desc={readOnly ? "Lihat data nilai seluruh siswa." : "Isi dan perbarui nilai sesuai penugasan Anda."} action={!readOnly && dirty?<span className="unsaved"><span/>Perubahan belum disimpan</span>:undefined}>
-    <div className="card filters-panel"><div className="three-filters"><Field label="Kelas"><select value={selectedClass} onChange={e=>setSelectedClass(e.target.value)}>{availableClasses.map(c=><option key={c}>{c}</option>)}</select></Field><Field label="Mata pelajaran"><select><option>Matematika</option><option>IPA</option></select></Field><Field label="Periode"><select><option>Semester Genap · PTS</option><option>Semester Genap · Tugas 1</option></select></Field></div><div className="assumption"><Icon name="help"/><span>Rentang penilaian 0–100. Kriteria Ketuntasan Minimal (KKM): 75.</span></div></div>
-    <div className="grade-layout"><div className="card table-card"><div className="card-head padded"><div><h2>Daftar Nilai Siswa</h2><p>{selectedClass} · Matematika · PTS</p></div><strong>{scoped.length} siswa</strong></div>
-    {scoped.length ? (
-      <div className="table-wrap"><table><thead><tr><th>Siswa</th><th>Nilai sebelumnya</th><th>Nilai saat ini</th><th>Status</th></tr></thead><tbody>{scoped.map(s=><tr key={s.id}><td><div className="student-cell"><div className="avatar">{getInitials(s.name)}</div><button className="student-link">{s.name}</button></div></td><td>{s.previous}</td><td><div><input disabled={readOnly} className={`score-input ${errors.includes(s.id)?"invalid":""}`} type="number" value={values[s.id] ?? s.current} onChange={e=>{setValues({...values,[s.id]:e.target.value});setDirty(true)}}/>{errors.includes(s.id)&&<small className="field-error">Nilai harus 0–100</small>}</div></td><td>{Number(values[s.id] ?? s.current)>=75?<Badge status="Tuntas"/>:<Badge status="Perlu Dukungan"/>}</td></tr>)}</tbody></table></div>
-    ) : <Empty title="Tidak ada siswa" desc="Belum ada siswa yang terdaftar di kelas ini." />}
-    {!readOnly && <div className="savebar"><span>{dirty?"Ada nilai yang berubah. Simpan sebelum berpindah halaman.":"Semua perubahan telah tersimpan."}</span><Button icon="check" onClick={save} disabled={!dirty || !scoped.length}>Simpan Nilai</Button></div>}</div>
-      <aside className="card grade-summary"><span className="eyebrow">RINGKASAN</span><h2>Rata-rata Kelas</h2><strong className="big-number">{avg}</strong><span className="positive">Target tuntas: ≥ 75</span><MiniChart/><div className="summary-list"><div><span>Nilai tertinggi</span><strong>{maxVal}</strong></div><div><span>Nilai terendah</span><strong>{minVal}</strong></div><div><span>Siswa tuntas</span><strong>{tuntasCount} / {scoped.length}</strong></div></div></aside>
-    </div>
-  </PageShell>;
+  return (
+    <PageShell
+      eyebrow="PENILAIAN AKADEMIK"
+      title={readOnly ? "Data Nilai" : "Input Nilai"}
+      desc={readOnly ? "Lihat rekapitulasi data nilai seluruh siswa secara komprehensif." : "Isi dan perbarui nilai mata pelajaran sesuai penugasan Anda."}
+      action={!readOnly && dirty ? <span className="unsaved"><span/>Perubahan belum disimpan</span> : undefined}
+    >
+      <div className="card filters-panel">
+        <div className="three-filters">
+          <Field label="Kelas">
+            <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
+              {availableClasses.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </Field>
+          <Field label="Mata pelajaran">
+            <select value={selectedSubject} onChange={e => setSelectedSubject(e.target.value)}>
+              {subjects.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </Field>
+          <Field label="Periode">
+            <select value={selectedPeriod} onChange={e => setSelectedPeriod(e.target.value)}>
+              {periods.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </Field>
+        </div>
+        <div className="assumption">
+          <Icon name="help"/>
+          <span>Rentang penilaian 0–100. Kriteria Ketuntasan Minimal (KKM): 75. Perubahan mata pelajaran akan memuat nilai sesuai subjek tersebut.</span>
+        </div>
+      </div>
+
+      <div className="grade-layout">
+        <div className="card table-card">
+          <div className="card-head padded">
+            <div>
+              <h2>Daftar Nilai Siswa</h2>
+              <p>{selectedClass} · {selectedSubject} · {selectedPeriod}</p>
+            </div>
+            <strong>{scoped.length} siswa</strong>
+          </div>
+          {scoped.length ? (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Siswa</th>
+                    <th>Nilai Sebelumnya</th>
+                    <th>Nilai Terkini ({selectedSubject})</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scoped.map(s => {
+                    const currentScore = Number(values[s.id] ?? getInitialScore(s, selectedSubject, selectedPeriod));
+                    const isTuntas = currentScore >= 75;
+                    return (
+                      <tr key={s.id}>
+                        <td>
+                          <div className="student-cell">
+                            <div className="avatar">{getInitials(s.name)}</div>
+                            <span style={{ fontWeight: 600 }}>{s.name}</span>
+                          </div>
+                        </td>
+                        <td>{Math.max(65, s.previous + (selectedSubject === "IPA" ? -2 : selectedSubject === "Bahasa Indonesia" ? 1 : 0))}</td>
+                        <td>
+                          <div>
+                            <input
+                              disabled={readOnly}
+                              className={`score-input ${errors.includes(s.id) ? "invalid" : ""}`}
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={values[s.id] ?? ""}
+                              onChange={e => {
+                                setValues({ ...values, [s.id]: e.target.value });
+                                setDirty(true);
+                              }}
+                            />
+                            {errors.includes(s.id) && <small className="field-error">Nilai harus 0–100</small>}
+                          </div>
+                        </td>
+                        <td>
+                          {isTuntas ? <Badge status="Tuntas" /> : <Badge status="Perlu Dukungan" />}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <Empty title="Tidak ada siswa" desc="Belum ada siswa yang terdaftar di kelas ini." />
+          )}
+          {!readOnly && (
+            <div className="savebar">
+              <span>
+                {dirty ? "Ada nilai yang berubah. Simpan sebelum berpindah mata pelajaran atau halaman." : `Nilai ${selectedSubject} tersimpan.`}
+              </span>
+              <Button icon="check" onClick={save} disabled={!dirty || !scoped.length}>
+                Simpan Nilai {selectedSubject}
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <aside className="card grade-summary">
+          <span className="eyebrow">RINGKASAN KELAS</span>
+          <h2>{selectedSubject}</h2>
+          <strong className="big-number">{avg}</strong>
+          <span className="positive">Target KKM: ≥ 75</span>
+          <MiniChart />
+          <div className="summary-list">
+            <div>
+              <span>Nilai tertinggi</span>
+              <strong>{maxVal}</strong>
+            </div>
+            <div>
+              <span>Nilai terendah</span>
+              <strong>{minVal}</strong>
+            </div>
+            <div>
+              <span>Siswa tuntas</span>
+              <strong>{tuntasCount} / {scoped.length}</strong>
+            </div>
+            <div>
+              <span>Mata Pelajaran</span>
+              <strong>{selectedSubject}</strong>
+            </div>
+            <div>
+              <span>Periode</span>
+              <strong>{selectedPeriod.split("·")[1]?.trim() || selectedPeriod}</strong>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </PageShell>
+  );
 }
 
 function AttendancePage({ students, setStudents, notify }: { students:Student[];setStudents:React.Dispatch<React.SetStateAction<Student[]>>;notify:(m:string)=>void }) {
@@ -369,6 +1006,7 @@ function AttendancePage({ students, setStudents, notify }: { students:Student[];
   }, [students]);
 
   const [selectedClass, setSelectedClass] = useState<string>(availableClasses[0] || "Semua Kelas");
+  const [selectedSubject, setSelectedSubject] = useState<string>("Matematika");
   const scoped = useMemo(() => {
     if (selectedClass === "Semua Kelas") return students;
     const f = students.filter(s => s.className === selectedClass);
@@ -379,7 +1017,7 @@ function AttendancePage({ students, setStudents, notify }: { students:Student[];
   const [statuses,setStatuses]=useState<Record<string,string>>({});
 
   const counts=["Hadir","Sakit","Izin","Alpa"].map(k=>({k,n:Object.values(statuses).filter(x=>x===k).length}));
-  const save=()=>{setStudents(x=>x.map(s=>statuses[s.id]?{...s,attendance:statuses[s.id]==="Hadir"?Math.min(100,s.attendance+1):Math.max(0,s.attendance-2)}:s));notify("Kehadiran berhasil disimpan dan rekap diperbarui.");};
+  const save=()=>{setStudents(x=>x.map(s=>statuses[s.id]?{...s,attendance:statuses[s.id]==="Hadir"?Math.min(100,s.attendance+1):Math.max(0,s.attendance-2)}:s));notify(`Kehadiran ${selectedSubject} berhasil disimpan dan rekap diperbarui.`);};
 
   return <PageShell eyebrow="AKADEMIK" title="Kehadiran Siswa" desc="Catat kehadiran per pertemuan dengan cepat dan akurat.">
     <div className="tabs">{["Catat Kehadiran","Riwayat","Rekap"].map(x=><button className={tab===x?"active":""} onClick={()=>setTab(x)} key={x}>{x}</button>)}</div>
@@ -388,7 +1026,7 @@ function AttendancePage({ students, setStudents, notify }: { students:Student[];
         <div className="card filters-panel">
           <div className="three-filters">
             <Field label="Kelas"><select value={selectedClass} onChange={e=>setSelectedClass(e.target.value)}>{availableClasses.map(c=><option key={c}>{c}</option>)}</select></Field>
-            <Field label="Mata pelajaran"><select><option>Matematika</option><option>IPA</option></select></Field>
+            <Field label="Mata pelajaran"><select value={selectedSubject} onChange={e=>setSelectedSubject(e.target.value)}><option value="Matematika">Matematika</option><option value="IPA">Ilmu Pengetahuan Alam</option><option value="Bahasa Indonesia">Bahasa Indonesia</option><option value="Bahasa Inggris">Bahasa Inggris</option></select></Field>
             <Field label="Tanggal pertemuan"><input type="date" defaultValue="2025-02-24"/></Field>
           </div>
         </div>
@@ -397,7 +1035,7 @@ function AttendancePage({ students, setStudents, notify }: { students:Student[];
           <div className="summary-chip"><span className="status-color c4"/><div><small>Belum Diisi</small><strong>{Math.max(0, scoped.length-Object.keys(statuses).length)}</strong></div></div>
         </div>
         <div className="card attendance-card">
-          <div className="card-head padded"><div><h2>Daftar Siswa · {selectedClass}</h2><p>Senin, 24 Februari 2025</p></div><Button variant="secondary" icon="check" onClick={()=>setStatuses(Object.fromEntries(scoped.map(s=>[s.id,"Hadir"])))}>Tandai Semua Hadir</Button></div>
+          <div className="card-head padded"><div><h2>Daftar Siswa · {selectedClass} · {selectedSubject}</h2><p>Senin, 24 Februari 2025</p></div><Button variant="secondary" icon="check" onClick={()=>setStatuses(Object.fromEntries(scoped.map(s=>[s.id,"Hadir"])))}>Tandai Semua Hadir</Button></div>
           <div className="attendance-list">
             {scoped.map(s=><div className="attendance-row" key={s.id}><div className="student-cell"><div className="avatar">{getInitials(s.name)}</div><div><strong>{s.name}</strong><span>{s.nis}</span></div></div><div className="attendance-options">{["Hadir","Sakit","Izin","Alpa"].map(x=><button className={statuses[s.id]===x?`selected ${x.toLowerCase()}`:""} onClick={()=>setStatuses({...statuses,[s.id]:x})} key={x}>{x}</button>)}</div></div>)}
           </div>
@@ -448,6 +1086,7 @@ function ReportsPage({ role, students, notify }: { role:Role;students:Student[];
   const [type,setType]=useState("Data Siswa");
   const classesList = useMemo(() => ["Semua Kelas", ...new Set(students.map(s => s.className).filter(Boolean))], [students]);
   const [selectedClass, setSelectedClass] = useState("Semua Kelas");
+  const [selectedSubject, setSelectedSubject] = useState("Semua Mata Pelajaran");
 
   const filtered = useMemo(() => {
     if (selectedClass === "Semua Kelas") return students;
@@ -463,8 +1102,8 @@ function ReportsPage({ role, students, notify }: { role:Role;students:Student[];
     notify("Laporan CSV berhasil diekspor.");
   };
 
-  return <PageShell eyebrow="LAPORAN" title="Pusat Laporan" desc={`Tampilkan dan ekspor data ${role==="guru"?"sesuai penugasan Anda":"seluruh sekolah"}.`}><div className="card report-filter"><div className="card-head"><div><h2>Atur Laporan</h2><p>Pilih jenis laporan dan filter yang diperlukan.</p></div></div><div className="four-filters"><Field label="Jenis laporan"><select value={type} onChange={e=>setType(e.target.value)}><option>Data Siswa</option><option>Nilai</option><option>Kehadiran</option><option>Prestasi</option></select></Field><Field label="Kelas"><select value={selectedClass} onChange={e=>setSelectedClass(e.target.value)}>{classesList.map(c=><option key={c}>{c}</option>)}</select></Field><Field label="Mata pelajaran"><select><option>Semua Mata Pelajaran</option><option>Matematika</option></select></Field><Field label="Periode"><select><option>Semester Genap 2024/2025</option></select></Field></div><div className="report-actions"><Button variant="ghost" onClick={()=>{setShown(false);setSelectedClass("Semua Kelas");}}>Reset Filter</Button><Button onClick={()=>setShown(true)}>Tampilkan Laporan</Button></div></div>
-  {shown?<div className="card table-card"><div className="card-head padded"><div><span className="eyebrow">PRATINJAU LAPORAN</span><h2>{type}</h2><p>{selectedClass} · Semester Genap 2024/2025 · {filtered.length} data</p></div><Button variant="secondary" icon="download" onClick={exportCsv}>Ekspor CSV</Button></div><div className="active-filters"><span>Filter aktif:</span><Badge status={selectedClass}/><Badge status="Semester Genap 2024/2025"/></div><div className="table-wrap"><table><thead><tr><th>Nama Siswa</th><th>NIS</th><th>Kelas</th><th>Nilai</th><th>Kehadiran</th></tr></thead><tbody>{filtered.map(s=><tr key={s.id}><td><strong>{s.name}</strong></td><td>{s.nis}</td><td>{s.className}</td><td>{s.current}</td><td>{s.attendance}%</td></tr>)}</tbody></table></div></div>:<div className="card"><Empty title="Laporan belum ditampilkan" desc="Atur filter di atas, lalu pilih Tampilkan Laporan untuk melihat pratinjau."/></div>}
+  return <PageShell eyebrow="LAPORAN" title="Pusat Laporan" desc={`Tampilkan dan ekspor data ${role==="guru"?"sesuai penugasan Anda":"seluruh sekolah"}.`}><div className="card report-filter"><div className="card-head"><div><h2>Atur Laporan</h2><p>Pilih jenis laporan dan filter yang diperlukan.</p></div></div><div className="four-filters"><Field label="Jenis laporan"><select value={type} onChange={e=>setType(e.target.value)}><option>Data Siswa</option><option>Nilai</option><option>Kehadiran</option><option>Prestasi</option></select></Field><Field label="Kelas"><select value={selectedClass} onChange={e=>setSelectedClass(e.target.value)}>{classesList.map(c=><option key={c}>{c}</option>)}</select></Field><Field label="Mata pelajaran"><select value={selectedSubject} onChange={e=>setSelectedSubject(e.target.value)}><option>Semua Mata Pelajaran</option><option>Matematika</option><option>IPA</option><option>Bahasa Indonesia</option><option>Bahasa Inggris</option></select></Field><Field label="Periode"><select><option>Semester Genap 2024/2025</option><option>Semester Ganjil 2024/2025</option></select></Field></div><div className="report-actions"><Button variant="ghost" onClick={()=>{setShown(false);setSelectedClass("Semua Kelas");setSelectedSubject("Semua Mata Pelajaran");}}>Reset Filter</Button><Button onClick={()=>setShown(true)}>Tampilkan Laporan</Button></div></div>
+  {shown?<div className="card table-card"><div className="card-head padded"><div><span className="eyebrow">PRATINJAU LAPORAN</span><h2>{type}</h2><p>{selectedClass} · {selectedSubject} · Semester Genap 2024/2025 · {filtered.length} data</p></div><Button variant="secondary" icon="download" onClick={exportCsv}>Ekspor CSV</Button></div><div className="active-filters"><span>Filter aktif:</span><Badge status={selectedClass}/><Badge status={selectedSubject}/><Badge status="Semester Genap 2024/2025"/></div><div className="table-wrap"><table><thead><tr><th>Nama Siswa</th><th>NIS</th><th>Kelas</th><th>Nilai</th><th>Kehadiran</th></tr></thead><tbody>{filtered.map(s=><tr key={s.id}><td><strong>{s.name}</strong></td><td>{s.nis}</td><td>{s.className}</td><td>{s.current}</td><td>{s.attendance}%</td></tr>)}</tbody></table></div></div>:<div className="card"><Empty title="Laporan belum ditampilkan" desc="Atur filter di atas, lalu pilih Tampilkan Laporan untuk melihat pratinjau."/></div>}
   </PageShell>;
 }
 
@@ -478,8 +1117,13 @@ function SecurityPage({ role, logout, notify }: { role:Role;logout:()=>void;noti
     }
   }, []);
 
+  const defaultName = role === "admin" ? "Rahmi Ananda" : role === "kepsek" ? "Drs. H. M. Ridwan, M.Pd." : "Bambang Sudarmanto, M.Pd.";
+  const defaultRoleLabel = role === "admin" ? "Administrator Sistem" : role === "kepsek" ? "Kepala Sekolah & Penanggung Jawab Akademik" : "Guru Matematika dan Wali Kelas";
+  const defaultEmail = role === "admin" ? "admin@simpatik.test" : role === "kepsek" ? "kepsek@simpatik.test" : "bambang@simpatik.test";
+  const roleBadge = role === "admin" ? "Admin" : role === "kepsek" ? "Kepala Sekolah" : "Guru";
+
   const save=async(e:React.FormEvent)=>{e.preventDefault();if(next!==confirm)return setError("Konfirmasi password baru tidak cocok.");if(next.length<8||!/[a-zA-Z]/.test(next)||!/[0-9]/.test(next))return setError("Password baru minimal 8 karakter dan memuat huruf serta angka.");try { await api.changePassword(old,next);setError("");setOld("");setNext("");setConfirm("");notify("Password berhasil diubah."); } catch(error) { setError(error instanceof Error?error.message:"Gagal mengubah password."); }};
-  return <PageShell eyebrow="PENGATURAN" title="Akun dan Keamanan" desc="Kelola informasi akun dan keamanan akses Anda."><div className="settings-grid"><div className="card account-card"><div className="profile-head"><div className="avatar profile">{getInitials(storedUser.name || (role==="admin"?"Rahmi Ananda":"Bambang Sudarmanto"))}</div><div><h2>{storedUser.name || (role==="admin"?"Rahmi Ananda":"Bambang Sudarmanto, M.Pd.")}</h2><p>{role==="admin"?"Administrator Sistem":"Guru Matematika dan Wali Kelas"}</p><Badge status={role==="admin"?"Admin":"Guru"}/></div></div><div className="account-info"><div><span>Email / Username</span><strong>{storedUser.email || (role==="admin"?"admin@simpatik.test":"bambang@simpatik.test")}</strong></div><div><span>Peran</span><strong>{role==="admin"?"Administrator":"Guru"}</strong></div><div><span>Status akun</span><strong>Aktif</strong></div><div><span>Sesi login</span><strong>Tervalidasi (JWT)</strong></div></div><Button variant="danger" icon="logout" onClick={logout}>Keluar dari Akun</Button></div><form className="card password-card" onSubmit={save}><div className="card-head"><div><h2>Ubah Password</h2><p>Gunakan kombinasi yang kuat dan mudah Anda ingat.</p></div></div><Field label="Password lama"><input type="password" value={old} onChange={e=>setOld(e.target.value)} required placeholder="Masukkan password saat ini"/></Field><Field label="Password baru"><input type="password" value={next} onChange={e=>setNext(e.target.value)} required placeholder="Minimal 8 karakter kombinasi"/><small>Minimal 8 karakter kombinasi huruf dan angka.</small></Field><Field label="Konfirmasi password baru"><input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} required placeholder="Ulangi password baru"/></Field>{error&&<div className="alert error"><Icon name="alert"/>{error}</div>}<Button type="submit">Simpan Password Baru</Button></form></div></PageShell>;
+  return <PageShell eyebrow="PENGATURAN" title="Akun dan Keamanan" desc="Kelola informasi akun dan keamanan akses Anda."><div className="settings-grid"><div className="card account-card"><div className="profile-head"><div className="avatar profile">{getInitials(storedUser.name || defaultName)}</div><div><h2>{storedUser.name || defaultName}</h2><p>{defaultRoleLabel}</p><Badge status={roleBadge}/></div></div><div className="account-info"><div><span>Email / Username</span><strong>{storedUser.email || defaultEmail}</strong></div><div><span>Peran</span><strong>{roleBadge}</strong></div><div><span>Status akun</span><strong>Aktif</strong></div><div><span>Sesi login</span><strong>Tervalidasi (JWT)</strong></div></div><Button variant="danger" icon="logout" onClick={logout}>Keluar dari Akun</Button></div><form className="card password-card" onSubmit={save}><div className="card-head"><div><h2>Ubah Password</h2><p>Gunakan kombinasi yang kuat dan mudah Anda ingat.</p></div></div><Field label="Password lama"><input type="password" value={old} onChange={e=>setOld(e.target.value)} required placeholder="Masukkan password saat ini"/></Field><Field label="Password baru"><input type="password" value={next} onChange={e=>setNext(e.target.value)} required placeholder="Minimal 8 karakter kombinasi"/><small>Minimal 8 karakter kombinasi huruf dan angka.</small></Field><Field label="Konfirmasi password baru"><input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} required placeholder="Ulangi password baru"/></Field>{error&&<div className="alert error"><Icon name="alert"/>{error}</div>}<Button type="submit">Simpan Password Baru</Button></form></div></PageShell>;
 }
 
 function HelpPage() { return <PageShell eyebrow="BANTUAN" title="Pusat Bantuan" desc="Panduan singkat menggunakan SIMPATIK."><div className="help-grid">{[["Memulai dengan SIMPATIK","Kenali dashboard, navigasi, dan konteks periode."],["Mengelola data akademik","Panduan nilai, kehadiran, dan monitoring siswa."],["Prestasi siswa","Alur pengajuan, revisi, hingga verifikasi."],["Akun dan keamanan","Jaga keamanan akun dan ubah password Anda."]].map((x,i)=><button className="card help-card" key={x[0]}><div className="stat-icon tone-green"><Icon name={["grid","book","award","shield"][i]}/></div><div><h2>{x[0]}</h2><p>{x[1]}</p></div><Icon name="arrow"/></button>)}</div><div className="card support"><div><h2>Masih membutuhkan bantuan?</h2><p>Hubungi tim pengembang SIMPATIK Yayasan Ishlahul Ummah.</p></div><Button variant="secondary">Hubungi Administrator</Button></div></PageShell>; }
@@ -551,7 +1195,7 @@ export default function App() {
   return <div className="app-shell">
     <aside className={`sidebar ${sidebar?"open":""}`}><div className="sidebar-brand"><div className="brand-logo">S</div><div><strong>SIMPATIK</strong><span>Yayasan Ishlahul Ummah</span></div><button className="sidebar-close" onClick={()=>setSidebar(false)}>×</button></div><div className="role-card"><div className="role-icon"><Icon name={role==="admin"?"shield":role==="kepsek"?"shield":"teacher"}/></div><div><span>Masuk sebagai</span><strong>{role==="admin"?"Administrator":role==="kepsek"?"Kepala Sekolah":"Guru"}</strong></div></div><nav>{menu.map(item=>{const group=item.group;const label=group&&group!==lastGroup?group:"";if(group)lastGroup=group;return <div key={item.page}>{label&&<div className="nav-group">{label}</div>}<button className={visiblePage===item.page?"active":""} onClick={()=>{setPage(item.page);setSidebar(false)}}><Icon name={item.icon}/><span>{item.label}</span>{visiblePage===item.page&&<i/>}</button></div>})}</nav><div className="sidebar-footer"><div className="foundation-mark">YIU</div><div><strong>Yayasan Ishlahul Ummah</strong><span>Kota Sawahlunto</span></div></div></aside>
     {sidebar&&<div className="mobile-overlay" onClick={()=>setSidebar(false)}/>}
-    <div className="main-shell"><header className="topbar"><div className="topbar-left"><button className="menu-button" onClick={()=>setSidebar(true)} aria-label="Buka menu navigasi"><Icon name="menu"/></button><div className="breadcrumb"><span>SIMPATIK</span><Icon name="arrow" size={13}/><strong>{title}</strong></div></div><div className="topbar-right"><div className="period"><span>Tahun Ajaran / Semester</span><select><option>2024/2025 · Genap</option><option>2024/2025 · Ganjil</option></select></div><button className="notification" aria-label="Notifikasi"><Icon name="bell"/><i/></button><button className="user-menu" onClick={()=>setPage("security")}><div className="avatar">{role==="admin"?"RA":"BS"}</div><div><strong>{role==="admin"?"Rahmi Ananda":"Bambang S."}</strong><span>{role==="admin"?"Administrator":"Guru"}</span></div><span>⌄</span></button></div></header><main className="content"><ErrorBoundary>{content}</ErrorBoundary></main></div>
+    <div className="main-shell"><header className="topbar"><div className="topbar-left"><button className="menu-button" onClick={()=>setSidebar(true)} aria-label="Buka menu navigasi"><Icon name="menu"/></button><div className="breadcrumb"><span>SIMPATIK</span><Icon name="arrow" size={13}/><strong>{title}</strong></div></div><div className="topbar-right"><div className="period"><span>Tahun Ajaran / Semester</span><select><option>2024/2025 · Genap</option><option>2024/2025 · Ganjil</option></select></div><button className="notification" aria-label="Notifikasi"><Icon name="bell"/><i/></button><button className="user-menu" onClick={()=>setPage("security")}><div className="avatar">{role==="admin"?"RA":role==="kepsek"?"KS":"BS"}</div><div><strong>{role==="admin"?"Rahmi Ananda":role==="kepsek"?"Drs. H. M. Ridwan":"Bambang S."}</strong><span>{role==="admin"?"Administrator":role==="kepsek"?"Kepala Sekolah":"Guru"}</span></div><span>⌄</span></button></div></header><main className="content"><ErrorBoundary>{content}</ErrorBoundary></main></div>
     {toast&&<div className={`toast ${toast.type}`}><div><Icon name={toast.type==="success"?"check":"alert"}/></div><span>{toast.message}</span><button onClick={()=>setToast(null)}>×</button></div>}
   </div>;
 }
