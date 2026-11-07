@@ -12,17 +12,30 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const response = await fetch(`${API_URL}${path}`, { ...init, headers });
-  const body = (await response.json()) as ApiResponse<T>;
-  if (response.status === 401) {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    window.dispatchEvent(new Event("simpatik:session-expired"));
+  try {
+    const response = await fetch(`${API_URL}${path}`, { ...init, headers });
+    const contentType = response.headers.get("content-type");
+    let body: any;
+    if (contentType && contentType.includes("application/json")) {
+      body = await response.json();
+    } else {
+      const text = await response.text();
+      if (!response.ok) {
+        throw new Error(`Server mengembalikan error (${response.status}): ${text || response.statusText}`);
+      }
+      return text as unknown as T;
+    }
+
+    if (!response.ok || !body.success) {
+      throw new Error(body?.error?.message || "Permintaan ke server gagal");
+    }
+    return body.data;
+  } catch (err: any) {
+    if (err.name === "TypeError" && err.message.includes("fetch")) {
+      throw new Error("Gagal terhubung ke server backend (port 4000). Pastikan backend sedang berjalan.");
+    }
+    throw err;
   }
-  if (!response.ok || !body.success) {
-    throw new Error(body.error?.message || "Permintaan ke server gagal");
-  }
-  return body.data;
 }
 
 export type ApiStudent = {
@@ -43,16 +56,28 @@ export type ApiAchievement = {
   siswa?: { nama: string } | null;
 };
 
+export type ApiClass = {
+  id: string;
+  nama: string;
+  tingkat: number;
+  tahunAjaran: string;
+};
+
 export const api = {
-  login: (email: string, password: string) =>
-    request<{ accessToken: string; user: { role: "ADMIN" | "GURU" | "KEPSEK"; name: string; email: string } }>("/auth/login", {
+  login: async (email: string, password: string) => {
+    const res = await request<{ accessToken: string; user: { id: string; role: "ADMIN" | "GURU"; name: string; email: string } }>("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
-    }),
-  me: () => request<{ id: string; name: string; role: "ADMIN" | "GURU" | "KEPSEK"; email: string }>("/auth/me"),
-  logout: () => request<null>("/auth/logout", { method: "POST" }),
+    });
+    if (res?.accessToken) {
+      localStorage.setItem("token", res.accessToken);
+    }
+    return res;
+  },
+  me: () => request<{ id: string; name: string; role: "ADMIN" | "GURU"; email: string }>("/auth/me"),
   students: (search = "") =>
     request<ApiStudent[]>(`/siswa?limit=100${search ? `&search=${encodeURIComponent(search)}` : ""}`),
+  classes: () => request<ApiClass[]>("/kelas"),
   createStudent: (data: Record<string, unknown>) =>
     request<ApiStudent>("/siswa", { method: "POST", body: JSON.stringify(data) }),
   updateStudent: (id: string, data: Record<string, unknown>) =>
@@ -64,4 +89,8 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ oldPassword, newPassword }),
     }),
+  logout: () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+  },
 };
