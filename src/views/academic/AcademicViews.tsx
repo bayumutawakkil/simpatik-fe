@@ -14,13 +14,13 @@ export function GradesPage({ students, setStudents, notify, readOnly = false }: 
   </PageShell>;
 }
 
-export function AttendancePage({ students, setStudents, notify }: { students:Student[];setStudents:React.Dispatch<React.SetStateAction<Student[]>>;notify:(m:string)=>void }) {
+export function AttendancePage({ students, setStudents, notify, readOnly = false }: { students:Student[];setStudents:React.Dispatch<React.SetStateAction<Student[]>>;notify:(m:string)=>void;readOnly?:boolean }) {
   const scoped=students.filter(s=>s.className==="Kelas A"); const [tab,setTab]=useState("Catat Kehadiran"); const [statuses,setStatuses]=useState<Record<string,string>>({});
   const counts=["Hadir","Sakit","Izin","Alpa"].map(k=>({k,n:Object.values(statuses).filter(x=>x===k).length}));
   const save=()=>{setStudents(x=>x.map(s=>statuses[s.id]?{...s,attendance:statuses[s.id]==="Hadir"?Math.min(100,s.attendance+1):Math.max(0,s.attendance-2)}:s));notify("Kehadiran berhasil disimpan dan rekap diperbarui.");};
-  return <PageShell eyebrow="AKADEMIK" title="Kehadiran Siswa" desc="Catat kehadiran per pertemuan dengan cepat dan akurat.">
+  return <PageShell eyebrow="AKADEMIK" title="Kehadiran Siswa" desc={readOnly ? "Lihat rekap kehadiran seluruh siswa." : "Catat kehadiran per pertemuan dengan cepat dan akurat."}>
     <div className="tabs">{["Catat Kehadiran","Riwayat","Rekap"].map(x=><button className={tab===x?"active":""} onClick={()=>setTab(x)} key={x}>{x}</button>)}</div>
-    {tab === "Catat Kehadiran" ? (
+    {readOnly ? <div className="card"><div className="history-list">{scoped.map(s=><div className="history-row" key={s.id}><div><strong>{s.name}</strong><span>{s.className} · 12 pertemuan tercatat</span></div><div className="progress"><span><i style={{width:`${s.attendance}%`}}/></span><strong className={s.attendance < 80 ? "danger-text" : ""}>{s.attendance}%</strong></div>{s.attendance < 80 && <Badge status="Kehadiran Rendah"/>}</div>)}</div></div> : tab === "Catat Kehadiran" ? (
       <>
         <div className="card filters-panel">
           <div className="three-filters">

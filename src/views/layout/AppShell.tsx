@@ -28,12 +28,14 @@ const guruMenu = [
 ];
 const kepsekMenu = [
   { page: "dashboard" as Page, label: "Dashboard", icon: "grid" },
-  { page: "students" as Page, label: "Data Siswa", icon: "users", group: "DATA AKADEMIK" },
+  { page: "students" as Page, label: "Data Siswa", icon: "users", group: "MONITORING DATA" },
   { page: "teachers" as Page, label: "Data Guru", icon: "teacher" },
-  { page: "grades" as Page, label: "Nilai", icon: "chart" },
+  { page: "classes" as Page, label: "Kelas dan Mata Pelajaran", icon: "class" },
+  { page: "grades" as Page, label: "Nilai Akademik", icon: "chart", group: "MONITORING AKADEMIK" },
+  { page: "attendance" as Page, label: "Kehadiran", icon: "calendar" },
   { page: "achievements" as Page, label: "Prestasi", icon: "award" },
-  { page: "security" as Page, label: "Akun dan Keamanan", icon: "shield", group: "PENGATURAN" },
-  { page: "help" as Page, label: "Bantuan", icon: "help" },
+  { page: "monitoring" as Page, label: "Monitoring Siswa", icon: "alert" },
+  { page: "reports" as Page, label: "Laporan", icon: "file" },
 ];
 
 export function AppShell({ role, page, go, children }: { role: Role; page: Page; go: (page: Page) => void; children: ReactNode }) {
@@ -50,6 +52,6 @@ export function AppShell({ role, page, go, children }: { role: Role; page: Page;
       <div className="sidebar-footer"><div className="foundation-mark">YIU</div><div><strong>Yayasan Ishlahul Ummah</strong><span>Kota Sawahlunto</span></div></div>
     </aside>
     {sidebar && <div className="mobile-overlay" onClick={() => setSidebar(false)} />}
-    <div className="main-shell"><header className="topbar"><div className="topbar-left"><button className="menu-button" onClick={() => setSidebar(true)}><Icon name="menu" /></button><div className="breadcrumb"><span>SIMPATIK</span><Icon name="arrow" size={13} /><strong>{title}</strong></div></div><div className="topbar-right"><div className="period"><span>Tahun Ajaran / Semester</span><select><option>2024/2025 · Genap</option><option>2024/2025 · Ganjil</option></select></div><button className="notification"><Icon name="bell" /><i /></button><button className="user-menu" onClick={() => go("security")}><div className="avatar">{role === "admin" ? "RA" : role === "kepsek" ? "KS" : "AS"}</div><div><strong>{role === "admin" ? "Rahmi Ananda" : role === "kepsek" ? "Kepala Sekolah" : "Andi Saputra"}</strong><span>{role === "admin" ? "Administrator" : role === "kepsek" ? "Kepala Sekolah" : "Guru"}</span></div><span>⌄</span></button></div></header><main className="content">{children}</main></div>
+    <div className="main-shell"><header className="topbar"><div className="topbar-left"><button className="menu-button" onClick={() => setSidebar(true)}><Icon name="menu" /></button><div className="breadcrumb"><span>SIMPATIK</span><Icon name="arrow" size={13} /><strong>{title}</strong></div></div><div className="topbar-right"><div className="period"><span>Tahun Ajaran / Semester</span><select><option>2024/2025 · Genap</option><option>2024/2025 · Ganjil</option></select></div><button className="notification"><Icon name="bell" /><i /></button><button className="user-menu" onClick={() => go(role === "kepsek" ? "reports" : "security")}><div className="avatar">{role === "admin" ? "RA" : role === "kepsek" ? "KS" : "AS"}</div><div><strong>{role === "admin" ? "Rahmi Ananda" : role === "kepsek" ? "Kepala Sekolah" : "Andi Saputra"}</strong><span>{role === "admin" ? "Administrator" : role === "kepsek" ? "Kepala Sekolah" : "Guru"}</span></div><span>⌄</span></button></div></header><main className="content">{children}</main></div>
   </div>;
 }

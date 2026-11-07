@@ -34,7 +34,7 @@ export function Login({ onLogin }: { onLogin: (role: Role) => void }) {
         {error && <div className="alert error"><Icon name="alert"/><span>{error}</span></div>}
         <Button type="submit">Masuk ke SIMPATIK</Button>
       </form>
-      <div className="demo-box"><div><strong>Akun demo</strong><span>Pilih peran untuk mengisi kredensial</span></div><div className="demo-actions"><Button variant="secondary" onClick={() => fill("admin")}>Demo Admin</Button><Button variant="secondary" onClick={() => fill("guru")}>Demo Guru</Button></div></div>
+      <div className="demo-box"><div><strong>Akun demo</strong><span>Pilih peran untuk mengisi kredensial</span></div><div className="demo-actions"><Button variant="secondary" onClick={() => fill("admin")}>Demo Admin</Button><Button variant="secondary" onClick={() => fill("guru")}>Demo Guru</Button><Button variant="secondary" onClick={() => fill("kepsek")}>Demo Kepsek</Button></div></div>
       <p className="login-help">Butuh bantuan? Hubungi administrator sekolah.</p>
     </div></main>
   </div>;

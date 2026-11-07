@@ -38,10 +38,10 @@ export function AppView({ role, page, students, achievements, setStudents, setAc
       case "students": return <StudentsPage role={role} students={students} setStudents={setStudents} notify={notify} />;
       case "teachers": case "classes": case "subjects": case "assignments": return <MasterPage type={visiblePage} notify={notify} readOnly={role === "kepsek"} />;
       case "grades": return <GradesPage students={students} setStudents={setStudents} notify={notify} readOnly={role === "kepsek"} />;
-      case "attendance": return <AttendancePage students={students} setStudents={setStudents} notify={notify} />;
+      case "attendance": return <AttendancePage students={students} setStudents={setStudents} notify={notify} readOnly={role === "kepsek"} />;
       case "achievements": return <AchievementsPage role={role} achievements={achievements} setAchievements={setAchievements} students={students} notify={notify} />;
       case "monitoring": return <MonitoringPage students={role === "guru" ? students.filter((student) => student.className !== "Kelas C") : students} />;
-      case "reports": return <ReportsPage role={role} students={students} notify={notify} />;
+      case "reports": return <ReportsPage role={role} students={students} achievements={achievements} notify={notify} />;
       case "security": return <SecurityPage role={role} logout={logout} notify={notify} />;
       default: return <HelpPage />;
     }
