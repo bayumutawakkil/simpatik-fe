@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { canAccessPage, type Achievement, type Page, type Role, type Student, type Toast } from "../models/app";
+import { canAccessPage, rolePages, type Achievement, type Page, type Role, type Student, type Toast } from "../models/app";
 import { AppShell } from "./layout/AppShell";
 import { Login } from "./auth/LoginView";
 import { Dashboard } from "./dashboard/DashboardView";
@@ -20,7 +20,7 @@ export function AppView({ role, page, students, achievements, setStudents, setAc
   notify: (message: string, type?: "success" | "error") => void; logout: () => void;
 }) {
   const [toast, setToast] = useState<Toast>(null);
-  const visiblePage = role && canAccessPage(role, page) ? page : "dashboard";
+  const visiblePage = role && canAccessPage(role, page) ? page : role ? rolePages[role][0] : "dashboard";
   useEffect(() => {
     const onToast = (event: Event) => {
       const detail = (event as CustomEvent<NonNullable<Toast>>).detail;

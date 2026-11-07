@@ -27,14 +27,8 @@ const guruMenu = [
   { page: "help" as Page, label: "Bantuan", icon: "help" },
 ];
 const kepsekMenu = [
-  { page: "dashboard" as Page, label: "Dashboard", icon: "grid" },
-  { page: "students" as Page, label: "Data Siswa", icon: "users", group: "MONITORING DATA" },
-  { page: "teachers" as Page, label: "Data Guru", icon: "teacher" },
-  { page: "classes" as Page, label: "Kelas dan Mata Pelajaran", icon: "class" },
   { page: "grades" as Page, label: "Nilai Akademik", icon: "chart", group: "MONITORING AKADEMIK" },
-  { page: "attendance" as Page, label: "Kehadiran", icon: "calendar" },
   { page: "achievements" as Page, label: "Prestasi", icon: "award" },
-  { page: "monitoring" as Page, label: "Monitoring Siswa", icon: "alert" },
   { page: "reports" as Page, label: "Laporan", icon: "file" },
 ];
 

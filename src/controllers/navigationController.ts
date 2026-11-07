@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { canAccessPage, pages, type Page, type Role } from "../models/app";
+import { canAccessPage, pages, rolePages, type Page, type Role } from "../models/app";
 
 function readPage(): Page {
   const value = window.location.hash.replace(/^#\/?/, "") as Page;
@@ -20,7 +20,7 @@ export function useNavigation(role: Role | null) {
   }, []);
 
   useEffect(() => {
-    if (role && !canAccessPage(role, page)) go("dashboard");
+    if (role && !canAccessPage(role, page)) go(rolePages[role][0]);
   }, [page, role]);
 
   return { page, go };

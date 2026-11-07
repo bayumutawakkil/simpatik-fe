@@ -1,7 +1,7 @@
 import React, { Component, useEffect, useMemo, useState, type ErrorInfo, type ReactNode } from "react";
 import { api, type ApiAchievement, type ApiStudent } from "./api";
 
-type Role = "admin" | "guru";
+type Role = "admin" | "guru" | "kepsek";
 type Page = "dashboard" | "students" | "teachers" | "classes" | "subjects" | "assignments" | "grades" | "attendance" | "achievements" | "monitoring" | "reports" | "security" | "help";
 type Student = { id: string; nis: string; name: string; className: string; classId?: string; status: string; current: number; previous: number; attendance: number; achievements: number };
 type Achievement = { id: string | number; student: string; name: string; field: string; level: string; date: string; result: string; status: "Menunggu Verifikasi" | "Perlu Revisi" | "Terverifikasi"; note?: string };
@@ -123,6 +123,18 @@ const guruMenu: typeof adminMenu = [
   { page: "help", label: "Bantuan", icon: "help" },
 ];
 
+const kepsekMenu: typeof adminMenu = [
+  { page: "grades", label: "Nilai Akademik", icon: "chart", group: "MONITORING AKADEMIK" },
+  { page: "achievements", label: "Prestasi", icon: "award" },
+  { page: "reports", label: "Laporan", icon: "file" },
+];
+
+const rolePages: Record<Role, Page[]> = {
+  admin: adminMenu.map((item) => item.page),
+  guru: guruMenu.map((item) => item.page),
+  kepsek: kepsekMenu.map((item) => item.page),
+};
+
 function Icon({ name, size = 18 }: { name: string; size?: number }) {
   const paths: Record<string, React.ReactNode> = {
     grid: <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
@@ -182,14 +194,14 @@ function Login({ onLogin }: { onLogin: (role: Role) => void }) {
     try {
       const res = await api.login(emailToUse, password);
       localStorage.setItem("user", JSON.stringify(res.user));
-      onLogin(res.user.role === "ADMIN" ? "admin" : "guru");
+      onLogin(res.user.role === "ADMIN" ? "admin" : res.user.role === "KEPSEK" ? "kepsek" : "guru");
     } catch (err: any) {
       setError(err.message || "Username atau password tidak sesuai. Silakan coba kembali.");
     }
   };
 
   const fill = (role: Role) => {
-    setUsername(role === "admin" ? "admin@simpatik.test" : "bambang@simpatik.test");
+    setUsername(role === "admin" ? "admin@simpatik.test" : role === "kepsek" ? "kepsek@simpatik.test" : "bambang@simpatik.test");
     setPassword(role === "admin" ? "admin123" : "password123");
     setError("");
   };
@@ -209,7 +221,7 @@ function Login({ onLogin }: { onLogin: (role: Role) => void }) {
         {error && <div className="alert error"><Icon name="alert"/><span>{error}</span></div>}
         <Button type="submit">Masuk ke SIMPATIK</Button>
       </form>
-      <div className="demo-box"><div><strong>Akun demo cepat</strong><span>Klik untuk otomatis mengisi kredensial</span></div><div className="demo-actions"><Button variant="secondary" onClick={() => fill("admin")}>Demo Admin</Button><Button variant="secondary" onClick={() => fill("guru")}>Demo Guru</Button></div></div>
+      <div className="demo-box"><div><strong>Akun demo cepat</strong><span>Klik untuk otomatis mengisi kredensial</span></div><div className="demo-actions"><Button variant="secondary" onClick={() => fill("admin")}>Demo Admin</Button><Button variant="secondary" onClick={() => fill("guru")}>Demo Guru</Button><Button variant="secondary" onClick={() => fill("kepsek")}>Demo Kepsek</Button></div></div>
       <p className="login-help">Akun demo: Admin (<code>admin@simpatik.test</code> / <code>admin123</code>), Guru (<code>bambang@simpatik.test</code> / <code>password123</code>)</p>
     </div></main>
   </div>;
@@ -301,7 +313,7 @@ function MasterPage({ type, notify }: { type: "teachers"|"classes"|"subjects"|"a
   {open&&<Modal title={config.button} onClose={()=>setOpen(false)} footer={<><Button variant="secondary" onClick={()=>setOpen(false)}>Batal</Button><Button onClick={()=>{setOpen(false);notify("Data berhasil disimpan.")}}>Simpan</Button></>}><div className="form-grid"><Field label={type==="assignments"?"Pilih guru":"Nama"}><input placeholder="Masukkan data"/></Field><Field label={type==="assignments"?"Pilih kelas":"Kode / Identitas"}><select><option>Pilih data</option><option>X IPA 1</option><option>X IPA 2</option></select></Field>{type==="assignments"&&<Field label="Mata pelajaran"><select><option>Matematika</option><option>IPA</option></select></Field>}</div></Modal>}</PageShell>;
 }
 
-function GradesPage({ students, setStudents, notify }: { students:Student[];setStudents:React.Dispatch<React.SetStateAction<Student[]>>;notify:(m:string)=>void }) {
+function GradesPage({ students, setStudents, notify, readOnly = false }: { students:Student[];setStudents:React.Dispatch<React.SetStateAction<Student[]>>;notify:(m:string)=>void;readOnly?:boolean }) {
   const availableClasses = useMemo(() => {
     const list = [...new Set(students.map(s => s.className).filter(Boolean))];
     return list.length ? list : ["Semua Kelas"];
@@ -338,13 +350,13 @@ function GradesPage({ students, setStudents, notify }: { students:Student[];setS
   const minVal = numVals.length ? Math.min(...numVals) : 0;
   const tuntasCount = numVals.filter(v => v >= 75).length;
 
-  return <PageShell eyebrow="PENILAIAN AKADEMIK" title="Input Nilai" desc="Isi dan perbarui nilai sesuai penugasan Anda." action={dirty?<span className="unsaved"><span/>Perubahan belum disimpan</span>:undefined}>
+  return <PageShell eyebrow="PENILAIAN AKADEMIK" title={readOnly ? "Data Nilai" : "Input Nilai"} desc={readOnly ? "Lihat data nilai seluruh siswa." : "Isi dan perbarui nilai sesuai penugasan Anda."} action={!readOnly && dirty?<span className="unsaved"><span/>Perubahan belum disimpan</span>:undefined}>
     <div className="card filters-panel"><div className="three-filters"><Field label="Kelas"><select value={selectedClass} onChange={e=>setSelectedClass(e.target.value)}>{availableClasses.map(c=><option key={c}>{c}</option>)}</select></Field><Field label="Mata pelajaran"><select><option>Matematika</option><option>IPA</option></select></Field><Field label="Periode"><select><option>Semester Genap · PTS</option><option>Semester Genap · Tugas 1</option></select></Field></div><div className="assumption"><Icon name="help"/><span>Rentang penilaian 0–100. Kriteria Ketuntasan Minimal (KKM): 75.</span></div></div>
     <div className="grade-layout"><div className="card table-card"><div className="card-head padded"><div><h2>Daftar Nilai Siswa</h2><p>{selectedClass} · Matematika · PTS</p></div><strong>{scoped.length} siswa</strong></div>
     {scoped.length ? (
-      <div className="table-wrap"><table><thead><tr><th>Siswa</th><th>Nilai sebelumnya</th><th>Nilai saat ini</th><th>Status</th></tr></thead><tbody>{scoped.map(s=><tr key={s.id}><td><div className="student-cell"><div className="avatar">{getInitials(s.name)}</div><button className="student-link">{s.name}</button></div></td><td>{s.previous}</td><td><div><input className={`score-input ${errors.includes(s.id)?"invalid":""}`} type="number" value={values[s.id] ?? s.current} onChange={e=>{setValues({...values,[s.id]:e.target.value});setDirty(true)}}/>{errors.includes(s.id)&&<small className="field-error">Nilai harus 0–100</small>}</div></td><td>{Number(values[s.id] ?? s.current)>=75?<Badge status="Tuntas"/>:<Badge status="Perlu Dukungan"/>}</td></tr>)}</tbody></table></div>
+      <div className="table-wrap"><table><thead><tr><th>Siswa</th><th>Nilai sebelumnya</th><th>Nilai saat ini</th><th>Status</th></tr></thead><tbody>{scoped.map(s=><tr key={s.id}><td><div className="student-cell"><div className="avatar">{getInitials(s.name)}</div><button className="student-link">{s.name}</button></div></td><td>{s.previous}</td><td><div><input disabled={readOnly} className={`score-input ${errors.includes(s.id)?"invalid":""}`} type="number" value={values[s.id] ?? s.current} onChange={e=>{setValues({...values,[s.id]:e.target.value});setDirty(true)}}/>{errors.includes(s.id)&&<small className="field-error">Nilai harus 0–100</small>}</div></td><td>{Number(values[s.id] ?? s.current)>=75?<Badge status="Tuntas"/>:<Badge status="Perlu Dukungan"/>}</td></tr>)}</tbody></table></div>
     ) : <Empty title="Tidak ada siswa" desc="Belum ada siswa yang terdaftar di kelas ini." />}
-    <div className="savebar"><span>{dirty?"Ada nilai yang berubah. Simpan sebelum berpindah halaman.":"Semua perubahan telah tersimpan."}</span><Button icon="check" onClick={save} disabled={!dirty || !scoped.length}>Simpan Nilai</Button></div></div>
+    {!readOnly && <div className="savebar"><span>{dirty?"Ada nilai yang berubah. Simpan sebelum berpindah halaman.":"Semua perubahan telah tersimpan."}</span><Button icon="check" onClick={save} disabled={!dirty || !scoped.length}>Simpan Nilai</Button></div>}</div>
       <aside className="card grade-summary"><span className="eyebrow">RINGKASAN</span><h2>Rata-rata Kelas</h2><strong className="big-number">{avg}</strong><span className="positive">Target tuntas: ≥ 75</span><MiniChart/><div className="summary-list"><div><span>Nilai tertinggi</span><strong>{maxVal}</strong></div><div><span>Nilai terendah</span><strong>{minVal}</strong></div><div><span>Siswa tuntas</span><strong>{tuntasCount} / {scoped.length}</strong></div></div></aside>
     </div>
   </PageShell>;
@@ -488,7 +500,9 @@ export default function App() {
     const token = localStorage.getItem("token");
     if (!token) return;
     api.me().then((user) => {
-      setRole(user.role === "ADMIN" ? "admin" : "guru");
+      const nextRole: Role = user.role === "ADMIN" ? "admin" : user.role === "KEPSEK" ? "kepsek" : "guru";
+      setRole(nextRole);
+      setPage(rolePages[nextRole][0]);
     }).catch(() => {
       api.logout();
     });
@@ -511,8 +525,9 @@ export default function App() {
       });
   }, [role]);
 
-  const menu=role==="admin"?adminMenu:guruMenu;
-  const title=menu.find(x=>x.page===page)?.label||"Dashboard";
+  const menu=role==="admin"?adminMenu:role==="kepsek"?kepsekMenu:guruMenu;
+  const visiblePage = role && rolePages[role].includes(page) ? page : role ? rolePages[role][0] : "dashboard";
+  const title=menu.find(x=>x.page===visiblePage)?.label||"Dashboard";
 
   const content=useMemo(()=>{
     if(!role) return null;
@@ -520,7 +535,7 @@ export default function App() {
       case "dashboard": return <Dashboard role={role} students={students} achievements={achievements} go={setPage}/>;
       case "students": return <StudentsPage role={role} students={students} setStudents={setStudents} notify={notify}/>;
       case "teachers": case "classes": case "subjects": case "assignments": return <MasterPage type={page} notify={notify}/>;
-      case "grades": return <GradesPage students={students} setStudents={setStudents} notify={notify}/>;
+      case "grades": return <GradesPage students={students} setStudents={setStudents} notify={notify} readOnly={role === "kepsek"}/>;
       case "attendance": return <AttendancePage students={students} setStudents={setStudents} notify={notify}/>;
       case "achievements": return <AchievementsPage role={role} achievements={achievements} setAchievements={setAchievements} students={students} notify={notify}/>;
       case "monitoring": return <MonitoringPage students={students}/>;
@@ -528,13 +543,13 @@ export default function App() {
       case "security": return <SecurityPage role={role} logout={()=>{api.logout();setRole(null);setPage("dashboard")}} notify={notify}/>;
       default: return <HelpPage/>;
     }
-  },[role,page,students,achievements]);
+  },[role,visiblePage,students,achievements]);
 
-  if(!role) return <Login onLogin={(r)=>{setRole(r);setPage("dashboard")}}/>;
+  if(!role) return <Login onLogin={(r)=>{setRole(r);setPage(r === "kepsek" ? "grades" : "dashboard")}}/>;
 
   let lastGroup="";
   return <div className="app-shell">
-    <aside className={`sidebar ${sidebar?"open":""}`}><div className="sidebar-brand"><div className="brand-logo">S</div><div><strong>SIMPATIK</strong><span>Yayasan Ishlahul Ummah</span></div><button className="sidebar-close" onClick={()=>setSidebar(false)}>×</button></div><div className="role-card"><div className="role-icon"><Icon name={role==="admin"?"shield":"teacher"}/></div><div><span>Masuk sebagai</span><strong>{role==="admin"?"Administrator":"Guru"}</strong></div></div><nav>{menu.map(item=>{const group=item.group;const label=group&&group!==lastGroup?group:"";if(group)lastGroup=group;return <div key={item.page}>{label&&<div className="nav-group">{label}</div>}<button className={page===item.page?"active":""} onClick={()=>{setPage(item.page);setSidebar(false)}}><Icon name={item.icon}/><span>{item.label}</span>{page===item.page&&<i/>}</button></div>})}</nav><div className="sidebar-footer"><div className="foundation-mark">YIU</div><div><strong>Yayasan Ishlahul Ummah</strong><span>Kota Sawahlunto</span></div></div></aside>
+    <aside className={`sidebar ${sidebar?"open":""}`}><div className="sidebar-brand"><div className="brand-logo">S</div><div><strong>SIMPATIK</strong><span>Yayasan Ishlahul Ummah</span></div><button className="sidebar-close" onClick={()=>setSidebar(false)}>×</button></div><div className="role-card"><div className="role-icon"><Icon name={role==="admin"?"shield":role==="kepsek"?"shield":"teacher"}/></div><div><span>Masuk sebagai</span><strong>{role==="admin"?"Administrator":role==="kepsek"?"Kepala Sekolah":"Guru"}</strong></div></div><nav>{menu.map(item=>{const group=item.group;const label=group&&group!==lastGroup?group:"";if(group)lastGroup=group;return <div key={item.page}>{label&&<div className="nav-group">{label}</div>}<button className={visiblePage===item.page?"active":""} onClick={()=>{setPage(item.page);setSidebar(false)}}><Icon name={item.icon}/><span>{item.label}</span>{visiblePage===item.page&&<i/>}</button></div>})}</nav><div className="sidebar-footer"><div className="foundation-mark">YIU</div><div><strong>Yayasan Ishlahul Ummah</strong><span>Kota Sawahlunto</span></div></div></aside>
     {sidebar&&<div className="mobile-overlay" onClick={()=>setSidebar(false)}/>}
     <div className="main-shell"><header className="topbar"><div className="topbar-left"><button className="menu-button" onClick={()=>setSidebar(true)} aria-label="Buka menu navigasi"><Icon name="menu"/></button><div className="breadcrumb"><span>SIMPATIK</span><Icon name="arrow" size={13}/><strong>{title}</strong></div></div><div className="topbar-right"><div className="period"><span>Tahun Ajaran / Semester</span><select><option>2024/2025 · Genap</option><option>2024/2025 · Ganjil</option></select></div><button className="notification" aria-label="Notifikasi"><Icon name="bell"/><i/></button><button className="user-menu" onClick={()=>setPage("security")}><div className="avatar">{role==="admin"?"RA":"BS"}</div><div><strong>{role==="admin"?"Rahmi Ananda":"Bambang S."}</strong><span>{role==="admin"?"Administrator":"Guru"}</span></div><span>⌄</span></button></div></header><main className="content"><ErrorBoundary>{content}</ErrorBoundary></main></div>
     {toast&&<div className={`toast ${toast.type}`}><div><Icon name={toast.type==="success"?"check":"alert"}/></div><span>{toast.message}</span><button onClick={()=>setToast(null)}>×</button></div>}
