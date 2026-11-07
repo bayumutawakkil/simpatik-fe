@@ -1,6 +1,8 @@
+import { useState } from "react";
 import type React from "react";
 import type { Student } from "../../models/app";
-import { Button, Empty, PageShell } from "../shared";
+import { Badge, Button, Field, Icon, PageShell } from "../shared";
+import { MiniChart } from "../dashboard/DashboardView";
 
 export function GradesPage({ students, setStudents, notify, readOnly = false }: { students:Student[];setStudents:React.Dispatch<React.SetStateAction<Student[]>>;notify:(m:string)=>void;readOnly?:boolean }) {
   const scoped=students.filter(s=>s.className==="Kelas A"); const [values,setValues]=useState<Record<string,string>>(()=>Object.fromEntries(scoped.map(s=>[s.id,String(s.current)]))); const [dirty,setDirty]=useState(false); const [errors,setErrors]=useState<string[]>([]);

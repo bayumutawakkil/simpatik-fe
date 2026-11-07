@@ -1,5 +1,7 @@
+import { useState } from "react";
 import type { Student } from "../../models/app";
-import { Badge, PageShell } from "../shared";
+import { Badge, Icon, Modal, PageShell } from "../shared";
+import { MiniChart } from "../dashboard/DashboardView";
 
 export function MonitoringPage({ students }: { students:Student[] }) {
   const [klass,setKlass]=useState("Semua Kelas"); const [detail,setDetail]=useState<Student|null>(null); const list=students.filter(s=>klass==="Semua Kelas"||s.className===klass);

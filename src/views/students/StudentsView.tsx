@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { api } from "../../api";
 import type { Role, Student } from "../../models/app";
-import { Badge, Button, Empty, Icon, Modal, PageShell } from "../shared";
+import { Badge, Button, Empty, Field, Icon, Modal, PageShell } from "../shared";
+import { mapStudent } from "../../models/data";
 
-export function StudentsPage({ role, students, setStudents, notify }: { role: Role; students: Student[]; setStudents: React.Dispatch<React.SetStateAction<Student[]>>; notify: (m:string)=>void }) {
+export function StudentsPage({ role, students, setStudents, notify }: { role: Role; students: Student[]; setStudents: React.Dispatch<React.SetStateAction<Student[]>>; notify: (m:string, type?: "success" | "error")=>void }) {
   const [query,setQuery]=useState(""); const [klass,setKlass]=useState("Semua Kelas"); const [modal,setModal]=useState(false); const [edit,setEdit]=useState<Student|null>(null); const [confirm,setConfirm]=useState<Student|null>(null);
   const filtered=students.filter(s=>(klass==="Semua Kelas"||s.className===klass)&&s.name.toLowerCase().includes(query.toLowerCase()));
   const save=async(e:React.FormEvent<HTMLFormElement>)=>{e.preventDefault(); const f=new FormData(e.currentTarget); const name=String(f.get("name")); const nis=String(f.get("nis")); const className=String(f.get("class")); try { const classId=students.find(s=>s.className===className)?.classId; const payload={nama:name,nis,kelasId:classId}; const saved=edit?await api.updateStudent(edit.id,payload):await api.createStudent({...payload,jenisKelamin:"LAKI_LAKI",tanggalLahir:"2010-01-01"}); const mapped=mapStudent(saved); setStudents(x=>edit?x.map(s=>s.id===edit.id?mapped:s):[...x,mapped]); setModal(false);setEdit(null);notify("Data siswa berhasil disimpan."); } catch (error) { notify(error instanceof Error?error.message:"Gagal menyimpan data siswa","error"); }};

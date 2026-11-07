@@ -1,7 +1,9 @@
+import { useState } from "react";
 import type React from "react";
 import { api } from "../../api";
 import type { Achievement, Role, Student } from "../../models/app";
-import { Badge, Button, Empty, Icon, Modal, PageShell } from "../shared";
+import { Badge, Button, Empty, Field, Icon, Modal, PageShell } from "../shared";
+import { StatCard } from "../dashboard/DashboardView";
 
 export function AchievementsPage({ role, achievements, setAchievements, students, notify }: { role:Role;achievements:Achievement[];setAchievements:React.Dispatch<React.SetStateAction<Achievement[]>>;students:Student[];notify:(m:string)=>void }) {
   const [status,setStatus]=useState("Semua Status"); const [selected,setSelected]=useState<Achievement|null>(null); const [add,setAdd]=useState(false); const list=achievements.filter(a=>status==="Semua Status"||a.status===status);

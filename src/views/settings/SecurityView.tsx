@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api } from "../../api";
 import type { Role } from "../../models/app";
-import { Badge, Button, Field, PageShell } from "../shared";
+import { Badge, Button, Field, Icon, PageShell } from "../shared";
 
 export function SecurityPage({ role, logout, notify }: { role:Role;logout:()=>void;notify:(m:string)=>void }) {
   const [old,setOld]=useState("");const [next,setNext]=useState("");const [confirm,setConfirm]=useState("");const [error,setError]=useState("");
