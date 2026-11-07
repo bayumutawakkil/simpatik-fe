@@ -65,7 +65,7 @@ export type ApiClass = {
 
 export const api = {
   login: async (email: string, password: string) => {
-    const res = await request<{ accessToken: string; user: { id: string; role: "ADMIN" | "GURU"; name: string; email: string } }>("/auth/login", {
+    const res = await request<{ accessToken: string; user: { id: string; role: "ADMIN" | "GURU" | "KEPSEK"; name: string; email: string } }>("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
@@ -74,7 +74,7 @@ export const api = {
     }
     return res;
   },
-  me: () => request<{ id: string; name: string; role: "ADMIN" | "GURU"; email: string }>("/auth/me"),
+  me: () => request<{ id: string; name: string; role: "ADMIN" | "GURU" | "KEPSEK"; email: string }>("/auth/me"),
   students: (search = "") =>
     request<ApiStudent[]>(`/siswa?limit=100${search ? `&search=${encodeURIComponent(search)}` : ""}`),
   classes: () => request<ApiClass[]>("/kelas"),
@@ -89,7 +89,7 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ oldPassword, newPassword }),
     }),
-  logout: () => {
+  logout: async () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
   },
