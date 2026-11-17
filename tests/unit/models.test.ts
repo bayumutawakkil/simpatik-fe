@@ -13,13 +13,16 @@ describe('Frontend Models & RBAC Permissions', () => {
       expect(canAccessPage('admin', 'reports')).toBe(true)
     })
 
-    it('membatasi halaman kepala sekolah hanya untuk grades, achievements, dan reports', () => {
+    it('membatasi halaman kepala sekolah sesuai hak akses monitoring', () => {
       expect(canAccessPage('kepsek', 'grades')).toBe(true)
       expect(canAccessPage('kepsek', 'achievements')).toBe(true)
       expect(canAccessPage('kepsek', 'reports')).toBe(true)
-      expect(canAccessPage('kepsek', 'dashboard')).toBe(false)
+      expect(canAccessPage('kepsek', 'monitoring')).toBe(true)
+      expect(canAccessPage('kepsek', 'dashboard')).toBe(true)
       expect(canAccessPage('kepsek', 'teachers')).toBe(false)
       expect(canAccessPage('kepsek', 'classes')).toBe(false)
+      expect(canAccessPage('kepsek', 'subjects')).toBe(false)
+      expect(canAccessPage('kepsek', 'assignments')).toBe(false)
     })
 
     it('mengizinkan guru mengakses nilai, absensi, siswa, prestasi, dan monitoring', () => {

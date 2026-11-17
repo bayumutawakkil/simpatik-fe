@@ -14,8 +14,8 @@ test.describe('E2E SIMPATIK Workflows', () => {
     const demoAdminBtn = page.getByRole('button', { name: 'Demo Admin' });
     await demoAdminBtn.click();
 
-    // Verifikasi input username terisi (bisa 'admin' atau 'admin@simpatik.test')
-    const usernameInput = page.getByPlaceholder('Masukkan username');
+    // Verifikasi input username terisi
+    const usernameInput = page.locator('input[placeholder*="admin@simpatik.test"], input[placeholder*="username"]');
     await expect(usernameInput).not.toBeEmpty();
 
     // Klik submit Masuk ke SIMPATIK

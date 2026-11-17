@@ -29,7 +29,8 @@ export default defineConfig({
 
   webServer: [
     {
-      command: 'npm --prefix ../be dev',
+      command: 'npm run dev',
+      cwd: '../be',
       url: 'http://localhost:4000/api/siswa',
       reuseExistingServer: true,
       timeout: 30000,

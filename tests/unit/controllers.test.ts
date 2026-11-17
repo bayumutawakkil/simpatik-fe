@@ -36,10 +36,10 @@ describe('Frontend Custom Hooks & Controllers', () => {
     })
 
     it('secara otomatis mengalihkan (redirect) jika role tidak memiliki izin ke halaman tersebut', () => {
-      // Kepsek tidak boleh ke dashboard, harus dialihkan ke grades (halaman pertama kepsek)
-      window.location.hash = '#/dashboard'
-      const { result } = renderHook(() => useNavigation('kepsek'))
-      expect(result.current.page).toBe('grades')
+      // Guru tidak boleh ke menu teachers, harus dialihkan ke menu pertama guru (dashboard)
+      window.location.hash = '#/teachers'
+      const { result } = renderHook(() => useNavigation('guru'))
+      expect(result.current.page).toBe('dashboard')
     })
   })
 
