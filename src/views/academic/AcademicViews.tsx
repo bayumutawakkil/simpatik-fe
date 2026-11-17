@@ -1,17 +1,34 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type React from "react";
 import type { Student } from "../../models/app";
 import { Badge, Button, Field, Icon, PageShell } from "../shared";
 import { MiniChart } from "../dashboard/DashboardView";
+import { api, type ApiSubject } from "../../api";
 
 export function GradesPage({ students, setStudents, notify, readOnly = false }: { students:Student[];setStudents:React.Dispatch<React.SetStateAction<Student[]>>;notify:(m:string)=>void;readOnly?:boolean }) {
   const scoped=students.filter(s=>s.className==="Kelas A"); const [values,setValues]=useState<Record<string,string>>(()=>Object.fromEntries(scoped.map(s=>[s.id,String(s.current)]))); const [dirty,setDirty]=useState(false); const [errors,setErrors]=useState<string[]>([]);
+  const [subjects, setSubjects] = useState<ApiSubject[]>([]);
+  const [selectedMapel, setSelectedMapel] = useState<string>("Matematika");
+
+  useEffect(() => {
+    api.subjects().then(setSubjects).catch(() => {
+      // Fallback subjects jika server belum merespon
+      setSubjects([
+        { id: "1", kode: "MTK", nama: "Matematika", kkm: 75 },
+        { id: "2", kode: "IPA", nama: "IPA", kkm: 75 },
+      ]);
+    });
+  }, []);
+
+  const currentSubject = subjects.find(s => s.nama === selectedMapel || s.kode === selectedMapel);
+  const currentKkm = currentSubject ? Number(currentSubject.kkm) : 75;
+
   const save=()=>{const bad=Object.entries(values).filter(([,v])=>Number(v)<0||Number(v)>100||v==="").map(([k])=>k);if(bad.length){setErrors(bad);return;}setStudents(x=>x.map(s=>values[s.id]!==undefined?{...s,current:Number(values[s.id])}:s));setDirty(false);setErrors([]);notify("Nilai berhasil disimpan dan monitoring diperbarui.");};
   const avg=Math.round(Object.values(values).reduce((a,v)=>a+(Number(v)||0),0)/scoped.length*10)/10;
   return <PageShell eyebrow="PENILAIAN AKADEMIK" title={readOnly ? "Data Nilai" : "Input Nilai"} desc={readOnly ? "Lihat data nilai seluruh siswa." : "Isi dan perbarui nilai sesuai penugasan Anda."} action={!readOnly && dirty?<span className="unsaved"><span/>Perubahan belum disimpan</span>:undefined}>
-    <div className="card filters-panel"><div className="three-filters"><Field label="Kelas"><select><option>Kelas A</option><option>Kelas B</option></select></Field><Field label="Mata pelajaran"><select><option>Matematika</option><option>IPA</option></select></Field><Field label="Periode"><select><option>Semester Genap · PTS</option><option>Semester Genap · Tugas 1</option></select></Field></div><div className="assumption"><Icon name="help"/><span>Asumsi prototipe: nilai menggunakan rentang 0–100 dan rata-rata aritmetika. Bobot final perlu dikonfirmasi.</span></div></div>
-    <div className="grade-layout"><div className="card table-card"><div className="card-head padded"><div><h2>Daftar Nilai Siswa</h2><p>Kelas A · Matematika · PTS</p></div><strong>{scoped.length} siswa</strong></div><div className="table-wrap"><table><thead><tr><th>Siswa</th><th>Nilai sebelumnya</th><th>Nilai saat ini</th><th>Status</th></tr></thead><tbody>{scoped.map(s=><tr key={s.id}><td><div className="student-cell"><div className="avatar">{s.name.split(" ").map(x=>x[0]).slice(0,2).join("")}</div><button className="student-link">{s.name}</button></div></td><td>{s.previous}</td><td><div><input disabled={readOnly} className={`score-input ${errors.includes(s.id)?"invalid":""}`} type="number" value={values[s.id]} onChange={e=>{setValues({...values,[s.id]:e.target.value});setDirty(true)}}/>{errors.includes(s.id)&&<small className="field-error">Nilai harus 0–100</small>}</div></td><td>{Number(values[s.id])>=75?<Badge status="Tuntas"/>:<Badge status="Perlu Dukungan"/>}</td></tr>)}</tbody></table></div>    {!readOnly && <div className="savebar"><span>{dirty?"Ada nilai yang berubah. Simpan sebelum berpindah halaman.":"Semua perubahan telah tersimpan."}</span><Button icon="check" onClick={save} disabled={!dirty}>Simpan Nilai</Button></div>}</div>
-      <aside className="card grade-summary"><span className="eyebrow">RINGKASAN</span><h2>Rata-rata Kelas</h2><strong className="big-number">{avg}</strong><span className="positive">+{Math.max(0,Math.round((avg-82)*10)/10)} dari periode lalu</span><MiniChart/><div className="summary-list"><div><span>Nilai tertinggi</span><strong>{Math.max(...Object.values(values).map(Number))}</strong></div><div><span>Nilai terendah</span><strong>{Math.min(...Object.values(values).map(Number))}</strong></div><div><span>Siswa tuntas</span><strong>{Object.values(values).filter(v=>Number(v)>=75).length} / {scoped.length}</strong></div></div></aside>
+    <div className="card filters-panel"><div className="three-filters"><Field label="Kelas"><select><option>Kelas A</option><option>Kelas B</option></select></Field><Field label="Mata pelajaran"><select value={selectedMapel} onChange={e => setSelectedMapel(e.target.value)}>{subjects.length ? subjects.map(s => <option key={s.id} value={s.nama}>{s.nama} (KKM: {s.kkm})</option>) : <><option>Matematika</option><option>IPA</option></>}</select></Field><Field label="Periode"><select><option>Semester Genap · PTS</option><option>Semester Genap · Tugas 1</option></select></Field></div><div className="assumption"><Icon name="help"/><span>Standar KKM Mata Pelajaran saat ini: <strong>{currentKkm}</strong>. Nilai di bawah KKM ditandai status <strong>Tidak Tuntas</strong>.</span></div></div>
+    <div className="grade-layout"><div className="card table-card"><div className="card-head padded"><div><h2>Daftar Nilai Siswa</h2><p>Kelas A · {selectedMapel} (KKM: {currentKkm}) · PTS</p></div><strong>{scoped.length} siswa</strong></div><div className="table-wrap"><table><thead><tr><th>Siswa</th><th>Nilai sebelumnya</th><th>Nilai saat ini</th><th>Status Ketuntasan</th></tr></thead><tbody>{scoped.map(s=><tr key={s.id}><td><div className="student-cell"><div className="avatar">{s.name.split(" ").map(x=>x[0]).slice(0,2).join("")}</div><button className="student-link">{s.name}</button></div></td><td>{s.previous}</td><td><div><input disabled={readOnly} className={`score-input ${errors.includes(s.id)?"invalid":""}`} type="number" value={values[s.id]} onChange={e=>{setValues({...values,[s.id]:e.target.value});setDirty(true)}}/>{errors.includes(s.id)&&<small className="field-error">Nilai harus 0–100</small>}</div></td><td>{Number(values[s.id])>=currentKkm?<Badge status="Tuntas"/>:<Badge status="Tidak Tuntas"/>}</td></tr>)}</tbody></table></div>    {!readOnly && <div className="savebar"><span>{dirty?"Ada nilai yang berubah. Simpan sebelum berpindah halaman.":"Semua perubahan telah tersimpan."}</span><Button icon="check" onClick={save} disabled={!dirty}>Simpan Nilai</Button></div>}</div>
+      <aside className="card grade-summary"><span className="eyebrow">RINGKASAN</span><h2>Rata-rata Kelas</h2><strong className="big-number">{avg}</strong><span className="positive">+{Math.max(0,Math.round((avg-82)*10)/10)} dari periode lalu</span><MiniChart/><div className="summary-list"><div><span>Nilai tertinggi</span><strong>{Math.max(...Object.values(values).map(Number))}</strong></div><div><span>Nilai terendah</span><strong>{Math.min(...Object.values(values).map(Number))}</strong></div><div><span>Siswa tuntas (≥ {currentKkm})</span><strong>{Object.values(values).filter(v=>Number(v)>=currentKkm).length} / {scoped.length}</strong></div></div></aside>
     </div>
   </PageShell>;
 }

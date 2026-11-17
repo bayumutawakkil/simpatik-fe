@@ -63,6 +63,24 @@ export type ApiClass = {
   tahunAjaran: string;
 };
 
+export type ApiSubject = {
+  id: string;
+  kode: string;
+  nama: string;
+  kkm: number;
+};
+
+export type ApiMatrixReportItem = {
+  id: string;
+  nama: string;
+  nis: string;
+  kelas: string;
+  kelasId?: string | null;
+  nilaiMapel: Record<string, number>;
+  rataRata: number;
+  statusKetuntasan: string;
+};
+
 export const api = {
   login: async (email: string, password: string) => {
     const res = await request<{ accessToken: string; user: { id: string; role: "ADMIN" | "GURU" | "KEPSEK"; name: string; email: string } }>("/auth/login", {
@@ -78,6 +96,7 @@ export const api = {
   students: (search = "") =>
     request<ApiStudent[]>(`/siswa?limit=100${search ? `&search=${encodeURIComponent(search)}` : ""}`),
   classes: () => request<ApiClass[]>("/kelas"),
+  subjects: () => request<ApiSubject[]>("/mata-pelajaran"),
   createStudent: (data: Record<string, unknown>) =>
     request<ApiStudent>("/siswa", { method: "POST", body: JSON.stringify(data) }),
   updateStudent: (id: string, data: Record<string, unknown>) =>
@@ -89,6 +108,31 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ oldPassword, newPassword }),
     }),
+  reportMatrix: (kelasId?: string, periode?: string) => {
+    const params = new URLSearchParams({ mode: "matrix" });
+    if (kelasId) params.set("kelasId", kelasId);
+    if (periode) params.set("periode", periode);
+    return request<ApiMatrixReportItem[]>(`/laporan/nilai?${params.toString()}`);
+  },
+  downloadReportPdf: async (siswaId: string, periode?: string) => {
+    const token = localStorage.getItem("token");
+    const url = `${API_URL}/laporan/pdf/rapor/${siswaId}${periode ? `?periode=${encodeURIComponent(periode)}` : ""}`;
+    const res = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      throw new Error("Gagal mengunduh rapor PDF dari server.");
+    }
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = `Rapor-Resmi-${siswaId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(blobUrl);
+  },
   logout: async () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");

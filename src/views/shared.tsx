@@ -34,7 +34,14 @@ export function Button({ children, variant = "primary", icon, onClick, type = "b
 }
 
 export function Badge({ status }: { status: string }) {
-  const kind = status.includes("Terverifikasi") || status === "Aktif" || status === "Hadir" ? "success" : status.includes("Revisi") || status === "Alpa" ? "danger" : status.includes("Menunggu") || status === "Izin" ? "warning" : "neutral";
+  const kind =
+    status.includes("Terverifikasi") || status === "Aktif" || status === "Hadir" || status === "Tuntas"
+      ? "success"
+      : status.includes("Revisi") || status === "Alpa" || status === "Tidak Tuntas" || status === "Kehadiran Rendah"
+      ? "danger"
+      : status.includes("Menunggu") || status === "Izin" || status === "Nilai Menurun"
+      ? "warning"
+      : "neutral";
   return <span className={`badge badge-${kind}`}><span className="badge-dot"/>{status}</span>;
 }
 
