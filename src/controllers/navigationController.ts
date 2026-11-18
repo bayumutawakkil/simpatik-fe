@@ -1,27 +1,24 @@
-import { useEffect, useState } from "react";
-import { canAccessPage, pages, rolePages, type Page, type Role } from "../models/app";
-
-function readPage(): Page {
-  const value = window.location.hash.replace(/^#\/?/, "") as Page;
-  return pages.includes(value) ? value : "dashboard";
-}
+import { useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { canAccessPage, pageToPath, pathToPage, rolePages, type Page, type Role } from "../models/app";
 
 export function useNavigation(role: Role | null) {
-  const [page, setPage] = useState<Page>(readPage);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Derive current Page key from the URL path, default to "dashboard"
+  const page: Page = pathToPage[location.pathname] ?? "dashboard";
+
   const go = (nextPage: Page) => {
-    window.location.hash = `/${nextPage}`;
-    setPage(nextPage);
+    navigate(pageToPath[nextPage]);
   };
 
+  // If the current URL maps to a page the role can't access, redirect to first allowed page
   useEffect(() => {
-    const onHashChange = () => setPage(readPage());
-    window.addEventListener("hashchange", onHashChange);
-    return () => window.removeEventListener("hashchange", onHashChange);
-  }, []);
-
-  useEffect(() => {
-    if (role && !canAccessPage(role, page)) go(rolePages[role][0]);
-  }, [page, role]);
+    if (role && !canAccessPage(role, page)) {
+      navigate(pageToPath[rolePages[role][0]], { replace: true });
+    }
+  }, [page, role, navigate]);
 
   return { page, go };
 }
