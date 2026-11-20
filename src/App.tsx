@@ -1,101 +1,25 @@
-import React, { Component, useEffect, useMemo, useState, type ErrorInfo, type ReactNode } from "react";
-import { api, type ApiAchievement, type ApiStudent } from "./api";
+import React, { useEffect, useMemo, useState } from "react";
 
 type Role = "admin" | "guru" | "kepsek";
 type Page = "dashboard" | "students" | "teachers" | "classes" | "subjects" | "assignments" | "grades" | "attendance" | "achievements" | "monitoring" | "reports" | "security" | "help";
-type Student = { id: string; nis: string; name: string; className: string; classId?: string; status: string; current: number; previous: number; attendance: number; achievements: number };
-type Achievement = { id: string | number; student: string; name: string; field: string; level: string; date: string; result: string; status: "Menunggu Verifikasi" | "Perlu Revisi" | "Terverifikasi"; note?: string };
+type Student = { id: number; nis: string; name: string; className: string; status: string; current: number; previous: number; attendance: number; achievements: number };
+type Achievement = { id: number; student: string; name: string; field: string; level: string; date: string; result: string; status: "Menunggu Verifikasi" | "Perlu Revisi" | "Terverifikasi"; note?: string };
 type Toast = { type: "success" | "error"; message: string } | null;
 
 const studentsSeed: Student[] = [
-  { id: "demo-1", nis: "2024001", name: "Aulia Rahma", className: "X IPA 1", status: "Aktif", current: 88, previous: 84, attendance: 96, achievements: 1 },
-  { id: "demo-2", nis: "2024002", name: "Fikri Ramadhan", className: "X IPA 1", status: "Aktif", current: 72, previous: 81, attendance: 92, achievements: 0 },
-  { id: "demo-3", nis: "2024003", name: "Nabila Putri", className: "X IPA 1", status: "Aktif", current: 86, previous: 83, attendance: 76, achievements: 1 },
-  { id: "demo-4", nis: "2024004", name: "Rizky Maulana", className: "X IPA 2", status: "Aktif", current: 79, previous: 77, attendance: 88, achievements: 0 },
-  { id: "demo-5", nis: "2024005", name: "Siti Khadijah", className: "X IPA 2", status: "Aktif", current: 91, previous: 87, attendance: 100, achievements: 1 },
-  { id: "demo-6", nis: "2024006", name: "Daffa Alfarizi", className: "X IPS 1", status: "Aktif", current: 75, previous: 78, attendance: 72, achievements: 0 },
+  { id: 1, nis: "2024001", name: "Aulia Rahma", className: "Kelas A", status: "Aktif", current: 88, previous: 84, attendance: 96, achievements: 1 },
+  { id: 2, nis: "2024002", name: "Fikri Ramadhan", className: "Kelas A", status: "Aktif", current: 72, previous: 81, attendance: 92, achievements: 0 },
+  { id: 3, nis: "2024003", name: "Nabila Putri", className: "Kelas A", status: "Aktif", current: 86, previous: 83, attendance: 76, achievements: 1 },
+  { id: 4, nis: "2024004", name: "Rizky Maulana", className: "Kelas B", status: "Aktif", current: 79, previous: 77, attendance: 88, achievements: 0 },
+  { id: 5, nis: "2024005", name: "Siti Khadijah", className: "Kelas B", status: "Aktif", current: 91, previous: 87, attendance: 100, achievements: 1 },
+  { id: 6, nis: "2024006", name: "Daffa Alfarizi", className: "Kelas C", status: "Aktif", current: 75, previous: 78, attendance: 72, achievements: 0 },
 ];
 
 const achievementsSeed: Achievement[] = [
-  { id: "demo-1", student: "Aulia Rahma", name: "Juara 1 Tahfiz Al-Qur'an", field: "Keagamaan", level: "Kabupaten", date: "12 Jan 2025", result: "Juara 1", status: "Terverifikasi" },
-  { id: "demo-2", student: "Nabila Putri", name: "Olimpiade Matematika", field: "Akademik", level: "Provinsi", date: "18 Feb 2025", result: "Finalis", status: "Menunggu Verifikasi" },
-  { id: "demo-3", student: "Siti Khadijah", name: "Lomba Pidato Bahasa", field: "Bahasa", level: "Kota", date: "03 Mar 2025", result: "Juara 2", status: "Perlu Revisi", note: "Mohon unggah sertifikat yang terlihat utuh dan jelas." },
+  { id: 1, student: "Aulia Rahma", name: "Juara 1 Tahfiz", field: "Keagamaan", level: "Kota", date: "12 Jan 2025", result: "Juara 1", status: "Terverifikasi" },
+  { id: 2, student: "Nabila Putri", name: "Olimpiade Matematika", field: "Akademik", level: "Provinsi", date: "18 Feb 2025", result: "Finalis", status: "Menunggu Verifikasi" },
+  { id: 3, student: "Siti Khadijah", name: "Lomba Pidato", field: "Bahasa", level: "Kota", date: "03 Mar 2025", result: "Juara 2", status: "Perlu Revisi", note: "Mohon unggah sertifikat yang terlihat utuh dan jelas." },
 ];
-
-function getInitials(name?: string): string {
-  if (!name) return "S";
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return "S";
-  return parts.slice(0, 2).map((p) => p[0]).join("").toUpperCase();
-}
-
-function mapStudent(student: ApiStudent): Student {
-  const hash = (student.nis || student.nama || "10").split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  const current = 74 + (hash % 22);
-  const previous = 72 + ((hash * 3) % 21);
-  const attendance = 76 + (hash % 25);
-  return {
-    id: student.id,
-    nis: student.nis,
-    name: student.nama,
-    className: student.kelas?.nama || "X IPA 1",
-    classId: student.kelas?.id,
-    status: "Aktif",
-    current,
-    previous,
-    attendance,
-    achievements: hash % 3 === 0 ? 1 : 0,
-  };
-}
-
-function mapAchievement(achievement: ApiAchievement): Achievement {
-  const status = achievement.statusVerifikasi === "DIVERIFIKASI"
-    ? "Terverifikasi"
-    : achievement.statusVerifikasi === "DITOLAK"
-      ? "Perlu Revisi"
-      : "Menunggu Verifikasi";
-  return {
-    id: achievement.id,
-    student: achievement.siswa?.nama || "Siswa",
-    name: achievement.judul,
-    field: achievement.bidang,
-    level: achievement.tingkat,
-    date: new Date(achievement.tanggalPerolehan).toLocaleDateString("id-ID"),
-    result: achievement.peringkat || "-",
-    status,
-  };
-}
-
-class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
-  constructor(props: { children: ReactNode }) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
-  }
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("ErrorBoundary caught:", error, errorInfo);
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="card" style={{ padding: "2rem", margin: "1.5rem", textAlign: "center" }}>
-          <div style={{ color: "#d9534f", fontSize: "1.2rem", fontWeight: 600, marginBottom: "0.75rem" }}>
-            Halaman ini mengalami kendala tampilan
-          </div>
-          <p style={{ color: "#666", marginBottom: "1.25rem" }}>
-            {this.state.error?.message || "Terjadi kesalahan pada rendering komponen."}
-          </p>
-          <button className="btn btn-primary" onClick={() => this.setState({ hasError: false, error: null })}>
-            Muat Ulang Komponen
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
 
 const adminMenu: { page: Page; label: string; icon: string; group?: string }[] = [
   { page: "dashboard", label: "Dashboard", icon: "grid" },
@@ -110,7 +34,6 @@ const adminMenu: { page: Page; label: string; icon: string; group?: string }[] =
   { page: "security", label: "Akun dan Keamanan", icon: "shield", group: "PENGATURAN" },
   { page: "help", label: "Bantuan", icon: "help" },
 ];
-
 const guruMenu: typeof adminMenu = [
   { page: "dashboard", label: "Dashboard", icon: "grid" },
   { page: "students", label: "Siswa Saya", icon: "users" },
@@ -122,22 +45,17 @@ const guruMenu: typeof adminMenu = [
   { page: "security", label: "Akun dan Keamanan", icon: "shield", group: "PENGATURAN" },
   { page: "help", label: "Bantuan", icon: "help" },
 ];
-
 const kepsekMenu: typeof adminMenu = [
   { page: "dashboard", label: "Dashboard", icon: "grid" },
+  { page: "students", label: "Data Siswa", icon: "users", group: "MONITORING DATA" },
+  { page: "teachers", label: "Data Guru", icon: "teacher" },
+  { page: "classes", label: "Kelas dan Mata Pelajaran", icon: "class" },
   { page: "grades", label: "Nilai Akademik", icon: "chart", group: "MONITORING AKADEMIK" },
-  { page: "monitoring", label: "Monitoring Siswa", icon: "chart" },
+  { page: "attendance", label: "Kehadiran", icon: "calendar" },
   { page: "achievements", label: "Prestasi", icon: "award" },
+  { page: "monitoring", label: "Monitoring Siswa", icon: "alert" },
   { page: "reports", label: "Laporan", icon: "file" },
-  { page: "security", label: "Akun dan Keamanan", icon: "shield", group: "PENGATURAN" },
-  { page: "help", label: "Bantuan", icon: "help" },
 ];
-
-const rolePages: Record<Role, Page[]> = {
-  admin: adminMenu.map((item) => item.page),
-  guru: guruMenu.map((item) => item.page),
-  kepsek: kepsekMenu.map((item) => item.page),
-};
 
 function Icon({ name, size = 18 }: { name: string; size?: number }) {
   const paths: Record<string, React.ReactNode> = {
@@ -171,16 +89,13 @@ function Icon({ name, size = 18 }: { name: string; size?: number }) {
 function Button({ children, variant = "primary", icon, onClick, type = "button", disabled = false }: { children: React.ReactNode; variant?: "primary" | "secondary" | "ghost" | "danger"; icon?: string; onClick?: () => void; type?: "button" | "submit"; disabled?: boolean }) {
   return <button type={type} className={`btn btn-${variant}`} onClick={onClick} disabled={disabled}>{icon && <Icon name={icon} size={17}/>}<span>{children}</span></button>;
 }
-
 function Badge({ status }: { status: string }) {
-  const kind = status.includes("Terverifikasi") || status === "Aktif" || status === "Hadir" || status === "Tuntas" ? "success" : status.includes("Revisi") || status === "Alpa" || status === "Perlu Dukungan" ? "danger" : status.includes("Menunggu") || status === "Izin" ? "warning" : "neutral";
+  const kind = status.includes("Terverifikasi") || status === "Aktif" || status === "Hadir" ? "success" : status.includes("Revisi") || status === "Alpa" ? "danger" : status.includes("Menunggu") || status === "Izin" ? "warning" : "neutral";
   return <span className={`badge badge-${kind}`}><span className="badge-dot"/>{status}</span>;
 }
-
 function Field({ label, children, error }: { label: string; children: React.ReactNode; error?: string }) {
   return <label className="field"><span>{label}</span>{children}{error && <small className="field-error">{error}</small>}</label>;
 }
-
 function Modal({ title, children, onClose, footer }: { title: string; children: React.ReactNode; onClose: () => void; footer?: React.ReactNode }) {
   return <div className="modal-backdrop" onMouseDown={onClose}><div className="modal" onMouseDown={(e) => e.stopPropagation()}><div className="modal-head"><div><span className="eyebrow">SIMPATIK</span><h2>{title}</h2></div><button className="icon-btn" onClick={onClose}>×</button></div><div className="modal-body">{children}</div>{footer && <div className="modal-foot">{footer}</div>}</div></div>;
 }
@@ -190,26 +105,15 @@ function Login({ onLogin }: { onLogin: (role: Role) => void }) {
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [error, setError] = useState("");
-
-  const submit = async (e: React.FormEvent) => {
+  const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !password) return setError("Username dan password wajib diisi.");
-    const emailToUse = username.includes("@") ? username : `${username}@simpatik.test`;
-    try {
-      const res = await api.login(emailToUse, password);
-      localStorage.setItem("user", JSON.stringify(res.user));
-      onLogin(res.user.role === "ADMIN" ? "admin" : res.user.role === "KEPSEK" ? "kepsek" : "guru");
-    } catch (err: any) {
-      setError(err.message || "Username atau password tidak sesuai. Silakan coba kembali.");
-    }
+    if (username === "admin" && password === "admin123") onLogin("admin");
+    else if (username === "guru" && password === "guru123") onLogin("guru");
+    else if (username === "kepsek.demo" && password === "KepsekDemo123!") onLogin("kepsek");
+    else setError("Username atau password tidak sesuai. Silakan coba kembali.");
   };
-
-  const fill = (role: Role) => {
-    setUsername(role === "admin" ? "admin@simpatik.test" : role === "kepsek" ? "kepsek@simpatik.test" : "bambang@simpatik.test");
-    setPassword(role === "admin" ? "admin123" : "password123");
-    setError("");
-  };
-
+  const fill = (role: Role) => { setUsername(role === "kepsek" ? "kepsek.demo" : role); setPassword(role === "admin" ? "admin123" : role === "guru" ? "guru123" : "KepsekDemo123!"); setError(""); };
   return <div className="login-page">
     <div className="login-brand">
       <div className="brand-lockup"><div className="brand-logo">S</div><div><strong>SIMPATIK</strong><span>Yayasan Ishlahul Ummah</span></div></div>
@@ -220,13 +124,13 @@ function Login({ onLogin }: { onLogin: (role: Role) => void }) {
       <div className="mobile-brand"><div className="brand-logo">S</div><strong>SIMPATIK</strong></div>
       <span className="eyebrow">SELAMAT DATANG</span><h2>Masuk ke akun Anda</h2><p className="muted">Gunakan akun yang telah terdaftar untuk melanjutkan.</p>
       <form onSubmit={submit}>
-        <Field label="Email / Username"><input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Contoh: admin@simpatik.test" /></Field>
+        <Field label="Username"><input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Masukkan username" /></Field>
         <Field label="Password"><div className="input-wrap"><input value={password} onChange={(e) => setPassword(e.target.value)} type={show ? "text" : "password"} placeholder="Masukkan password"/><button type="button" className="input-icon" onClick={() => setShow(!show)}><Icon name="eye"/></button></div></Field>
         {error && <div className="alert error"><Icon name="alert"/><span>{error}</span></div>}
         <Button type="submit">Masuk ke SIMPATIK</Button>
       </form>
-      <div className="demo-box"><div><strong>Akun demo cepat</strong><span>Klik untuk otomatis mengisi kredensial</span></div><div className="demo-actions"><Button variant="secondary" onClick={() => fill("admin")}>Demo Admin</Button><Button variant="secondary" onClick={() => fill("guru")}>Demo Guru</Button><Button variant="secondary" onClick={() => fill("kepsek")}>Demo Kepsek</Button></div></div>
-      <p className="login-help">Akun demo: Admin (<code>admin@simpatik.test</code> / <code>admin123</code>), Guru (<code>bambang@simpatik.test</code> / <code>password123</code>)</p>
+      <div className="demo-box"><div><strong>Akun demo</strong><span>Pilih peran untuk mengisi kredensial</span></div><div className="demo-actions"><Button variant="secondary" onClick={() => fill("admin")}>Demo Admin</Button><Button variant="secondary" onClick={() => fill("guru")}>Demo Guru</Button><Button variant="secondary" onClick={() => fill("kepsek")}>Demo Kepsek</Button></div></div>
+      <p className="login-help">Butuh bantuan? Hubungi administrator sekolah.</p>
     </div></main>
   </div>;
 }
@@ -234,7 +138,6 @@ function Login({ onLogin }: { onLogin: (role: Role) => void }) {
 function StatCard({ label, value, detail, icon, tone = "green" }: { label: string; value: string | number; detail: string; icon: string; tone?: string }) {
   return <div className="stat-card"><div className={`stat-icon tone-${tone}`}><Icon name={icon}/></div><div className="stat-label">{label}</div><strong className="stat-value">{value}</strong><span className="stat-detail">{detail}</span></div>;
 }
-
 function MiniChart({ type = "line" }: { type?: "line" | "bar" }) {
   if (type === "bar") return <div className="bar-chart">{[76,82,80,87,90,88].map((x,i)=><div key={i}><span style={{height:`${x-30}%`}}/><small>{["Sep","Okt","Nov","Des","Jan","Feb"][i]}</small></div>)}</div>;
   return <div className="line-chart"><svg viewBox="0 0 500 150" preserveAspectRatio="none"><defs><linearGradient id="fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#137a5a" stopOpacity=".2"/><stop offset="1" stopColor="#137a5a" stopOpacity="0"/></linearGradient></defs><path className="area" d="M0 120 C70 112,80 75,145 88 S240 60,290 72 S385 28,500 38 L500 150 L0 150Z"/><path className="line" d="M0 120 C70 112,80 75,145 88 S240 60,290 72 S385 28,500 38"/></svg><div className="chart-labels"><span>Sep</span><span>Okt</span><span>Nov</span><span>Des</span><span>Jan</span><span>Feb</span></div></div>;
@@ -242,802 +145,155 @@ function MiniChart({ type = "line" }: { type?: "line" | "bar" }) {
 
 function Dashboard({ role, students, achievements, go }: { role: Role; students: Student[]; achievements: Achievement[]; go: (p: Page) => void }) {
   const attention = students.filter(s => s.current < s.previous || s.attendance < 80);
-  const pending = achievements.filter(a => role === "admin" ? a.status === "Menunggu Verifikasi" : a.status === "Perlu Revisi");
-  const uniqueClasses = useMemo(() => [...new Set(students.map(s => s.className).filter(Boolean))], [students]);
-
+  const pending = achievements.filter(a => role === "admin" ? a.status === "Menunggu Verifikasi" : role === "guru" ? a.status === "Perlu Revisi" : a.status === "Terverifikasi");
+  const currentAverage=Math.round(students.reduce((sum,s)=>sum+s.current,0)/students.length*10)/10;
+  const previousAverage=Math.round(students.reduce((sum,s)=>sum+s.previous,0)/students.length*10)/10;
+  const averageChange=Math.round((currentAverage-previousAverage)*10)/10;
+  const attendanceAverage=Math.round(students.reduce((sum,s)=>sum+s.attendance,0)/students.length*10)/10;
   return <div className="page">
-    <div className="welcome"><div><span className="eyebrow">{role === "admin" ? "DASHBOARD ADMIN" : "RUANG KERJA GURU"}</span><h1>Selamat datang di SIMPATIK</h1><p>Berikut ringkasan aktivitas akademik Semester Genap 2024/2025.</p></div><div className="date-chip"><Icon name="calendar"/><div><small>Status Sistem</small><strong>Aktif & Terhubung</strong></div></div></div>
-    <div className="stats-grid">{role === "admin" ? <>
-      <StatCard label="Total Siswa" value={students.length} detail={`${uniqueClasses.length || 3} kelas aktif`} icon="users"/><StatCard label="Guru Terdaftar" value="5" detail="Semua akun aktif" icon="teacher" tone="blue"/><StatCard label="Kelas Aktif" value={uniqueClasses.length || 3} detail="Semester Genap" icon="class" tone="purple"/><StatCard label="Prestasi Terverifikasi" value={achievements.filter(a=>a.status==="Terverifikasi").length} detail="Tahun ajaran ini" icon="award" tone="amber"/>
-    </> : <><StatCard label="Kelas Diampu" value={uniqueClasses.length || 2} detail="Tanggung jawab Anda" icon="class"/><StatCard label="Mata Pelajaran" value="2" detail="Matematika, IPA" icon="book" tone="blue"/><StatCard label="Siswa Ditangani" value={students.length} detail="Dari kelas binaan" icon="users" tone="purple"/><StatCard label="Pengajuan Prestasi" value={achievements.length} detail={`${pending.length} perlu perhatian`} icon="award" tone="amber"/></>}</div>
+    <div className="welcome"><div><span className="eyebrow">{role === "admin" ? "DASHBOARD ADMIN" : role === "guru" ? "RUANG KERJA GURU" : "DASHBOARD KEPALA SEKOLAH"}</span><h1>Selamat datang, {role === "admin" ? "Ibu Rahmi" : role === "guru" ? "Bapak Andi" : "Bapak Irwan"}</h1><p>Berikut ringkasan aktivitas akademik Semester Genap 2024/2025.</p></div><div className="date-chip"><Icon name="calendar"/><div><small>Hari ini</small><strong>Senin, 24 Februari 2025</strong></div></div></div>
+    <div className="stats-grid">{role !== "guru" ? <>
+      <StatCard label="Total Siswa" value={students.length} detail="3 kelas aktif" icon="users"/><StatCard label="Total Guru" value="8" detail="Semua akun aktif" icon="teacher" tone="blue"/><StatCard label="Kelas Aktif" value="3" detail="Semester Genap" icon="class" tone="purple"/><StatCard label="Prestasi Terverifikasi" value={achievements.filter(a=>a.status==="Terverifikasi").length} detail="Tahun ajaran ini" icon="award" tone="amber"/>
+    </> : <><StatCard label="Kelas Diampu" value="2" detail="Kelas A dan B" icon="class"/><StatCard label="Mata Pelajaran" value="2" detail="Matematika, IPA" icon="book" tone="blue"/><StatCard label="Siswa Ditangani" value={students.filter(s=>s.className!=="Kelas C").length} detail="Dari 2 kelas" icon="users" tone="purple"/><StatCard label="Pengajuan Prestasi" value={achievements.length} detail="1 perlu revisi" icon="award" tone="amber"/></>}</div>
     {role === "guru" && <div className="quick-actions"><div><strong>Aksi cepat</strong><span>Lanjutkan pekerjaan utama Anda</span></div><Button icon="edit" onClick={()=>go("grades")}>Input Nilai</Button><Button variant="secondary" icon="calendar" onClick={()=>go("attendance")}>Catat Kehadiran</Button><Button variant="secondary" icon="plus" onClick={()=>go("achievements")}>Tambah Prestasi</Button></div>}
     <div className="dashboard-grid">
-      <section className="card chart-card"><div className="card-head"><div><h2>Tren Rata-rata Nilai</h2><p>Perkembangan enam periode terakhir</p></div><Badge status="+3,2 poin"/></div><MiniChart/><div className="chart-summary"><div><span>Rata-rata terkini</span><strong>83,6</strong></div><div><span>Periode sebelumnya</span><strong>80,4</strong></div><div><span>Perubahan</span><strong className="positive">+3,2</strong></div></div></section>
-      <section className="card chart-card"><div className="card-head"><div><h2>Tren Kehadiran</h2><p>Persentase kehadiran per bulan</p></div><Badge status="Stabil"/></div><MiniChart type="bar"/><div className="chart-summary"><div><span>Rata-rata hadir</span><strong>88,9%</strong></div><div><span>Target minimum</span><strong>≥ 75%</strong></div><div><span>Di bawah batas</span><strong className="danger-text">{attention.length} siswa</strong></div></div></section>
+      <section className="card chart-card"><div className="card-head"><div><h2>Tren Rata-rata Nilai</h2><p>Perkembangan enam periode terakhir</p></div><Badge status={`${averageChange>=0?"+":""}${averageChange} poin`}/></div><MiniChart/><div className="chart-summary"><div><span>Rata-rata terkini</span><strong>{currentAverage}</strong></div><div><span>Periode sebelumnya</span><strong>{previousAverage}</strong></div><div><span>Perubahan</span><strong className={averageChange>=0?"positive":"danger-text"}>{averageChange>=0?"+":""}{averageChange}</strong></div></div></section>
+      <section className="card chart-card"><div className="card-head"><div><h2>Tren Kehadiran</h2><p>Persentase kehadiran per bulan</p></div><Badge status="Stabil"/></div><MiniChart type="bar"/><div className="chart-summary"><div><span>Rata-rata hadir</span><strong>{attendanceAverage}%</strong></div><div><span>Target demo</span><strong>≥ 80%</strong></div><div><span>Di bawah batas</span><strong className="danger-text">{students.filter(s=>s.attendance<80).length} siswa</strong></div></div></section>
     </div>
     <div className="dashboard-grid lower">
       <section className="card"><div className="card-head"><div><h2>Siswa Membutuhkan Perhatian</h2><p>Indikator nilai dan kehadiran terkini</p></div><button className="text-btn" onClick={()=>go("monitoring")}>Lihat semua <Icon name="arrow" size={15}/></button></div>
-        <div className="people-list">{attention.map(s=><button className="person-row" key={s.id} onClick={()=>go("monitoring")}><div className="avatar">{getInitials(s.name)}</div><div className="person-main"><strong>{s.name}</strong><span>{s.className} · {s.nis}</span></div><div className="reason"><Badge status={s.attendance<80?"Kehadiran Rendah":"Nilai Menurun"}/><small>{s.attendance<80?`${s.attendance}% kehadiran`:`Turun ${Math.abs(s.previous-s.current)} poin`}</small></div><Icon name="arrow" size={16}/></button>)}</div>
+        <div className="people-list">{attention.map(s=><button className="person-row" key={s.id} onClick={()=>go("monitoring")}><div className="avatar">{s.name.split(" ").map(x=>x[0]).slice(0,2).join("")}</div><div className="person-main"><strong>{s.name}</strong><span>{s.className} · {s.nis}</span></div><div className="reason"><Badge status={s.attendance<80?"Kehadiran Rendah":"Nilai Menurun"}/><small>{s.attendance<80?`${s.attendance}% kehadiran`:`Turun ${s.previous-s.current} poin`}</small></div><Icon name="arrow" size={16}/></button>)}</div>
       </section>
-      <section className="card"><div className="card-head"><div><h2>{role==="admin"?"Menunggu Verifikasi":"Perlu Direvisi"}</h2><p>Pengajuan prestasi siswa</p></div><button className="text-btn" onClick={()=>go("achievements")}>Lihat semua <Icon name="arrow" size={15}/></button></div>
+      <section className="card"><div className="card-head"><div><h2>{role==="admin"?"Menunggu Verifikasi":role==="guru"?"Perlu Direvisi":"Ringkasan Prestasi"}</h2><p>{role==="kepsek"?"Prestasi siswa yang telah terverifikasi":"Pengajuan prestasi siswa"}</p></div><button className="text-btn" onClick={()=>go("achievements")}>Lihat semua <Icon name="arrow" size={15}/></button></div>
         <div className="submission-list">{pending.length ? pending.map(a=><button className="submission-row" key={a.id} onClick={()=>go("achievements")}><div className="submission-icon"><Icon name="award"/></div><div><strong>{a.name}</strong><span>{a.student} · {a.level}</span></div><Badge status={a.status}/></button>) : <div className="empty-small">Tidak ada pengajuan saat ini.</div>}</div>
       </section>
     </div>
   </div>;
 }
 
-function StudentsPage({ role, students, setStudents, notify }: { role: Role; students: Student[]; setStudents: React.Dispatch<React.SetStateAction<Student[]>>; notify: (m:string, type?: "success"|"error")=>void }) {
-  const [query,setQuery]=useState("");
-  const [klass,setKlass]=useState("Semua Kelas");
-  const [modal,setModal]=useState(false);
-  const [edit,setEdit]=useState<Student|null>(null);
-  const [confirm,setConfirm]=useState<Student|null>(null);
-  const [viewDetail,setViewDetail]=useState<Student|null>(null);
-
-  const classesList = useMemo(() => ["Semua Kelas", ...new Set(students.map(s => s.className).filter(Boolean))], [students]);
+function StudentsPage({ role, students, setStudents, notify }: { role: Role; students: Student[]; setStudents: React.Dispatch<React.SetStateAction<Student[]>>; notify: (m:string)=>void }) {
+  const [query,setQuery]=useState(""); const [klass,setKlass]=useState("Semua Kelas"); const [modal,setModal]=useState(false); const [edit,setEdit]=useState<Student|null>(null); const [confirm,setConfirm]=useState<Student|null>(null); const [detail,setDetail]=useState<Student|null>(null);
   const filtered=students.filter(s=>(klass==="Semua Kelas"||s.className===klass)&&s.name.toLowerCase().includes(query.toLowerCase()));
-
-  const save=async(e:React.FormEvent<HTMLFormElement>)=>{
-    e.preventDefault();
-    const f=new FormData(e.currentTarget);
-    const name=String(f.get("name"));
-    const nis=String(f.get("nis"));
-    const className=String(f.get("class"));
-    const statusVal=String(f.get("status") || "Aktif");
-    try {
-      const classId=students.find(s=>s.className===className)?.classId;
-      const payload={nama:name,nis,kelasId:classId};
-      const saved=edit?await api.updateStudent(edit.id,payload):await api.createStudent({...payload,jenisKelamin:"LAKI_LAKI",tanggalLahir:"2010-01-01"});
-      const mapped={ ...mapStudent(saved), status: statusVal };
-      setStudents(x=>edit?x.map(s=>s.id===edit.id?mapped:s):[...x,mapped]);
-      setModal(false);
-      setEdit(null);
-      notify("Data siswa berhasil disimpan.");
-    } catch (error) {
-      notify(error instanceof Error?error.message:"Gagal menyimpan data siswa","error");
-    }
-  };
-
-  return <PageShell eyebrow={role==="admin"?"DATA MASTER":"AKADEMIK"} title={role==="admin"?"Data Siswa":"Siswa Saya"} desc={role==="admin"?"Kelola identitas dan penempatan kelas siswa.":"Siswa dari kelas dan mata pelajaran yang Anda ampu."} action={role==="admin"?<Button icon="plus" onClick={()=>setModal(true)}>Tambah Siswa</Button>:undefined}>
-    <div className="card table-card"><div className="filterbar"><div className="search"><Icon name="search"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Cari nama siswa..."/></div><select value={klass} onChange={e=>setKlass(e.target.value)}>{classesList.map(c=><option key={c}>{c}</option>)}</select><span className="result-count">{filtered.length} siswa ditemukan</span></div>
-      {filtered.length?<div className="table-wrap"><table><thead><tr><th>Siswa</th><th>Nomor Induk</th><th>Kelas</th><th>Status</th><th>Ringkasan</th><th/></tr></thead><tbody>{filtered.map(s=><tr key={s.id}><td><div className="student-cell"><div className="avatar">{getInitials(s.name)}</div><strong>{s.name}</strong></div></td><td>{s.nis}</td><td>{s.className}</td><td><Badge status={s.status}/></td><td><span className={s.attendance<80?"danger-text":""}>Nilai {s.current || "—"} · Hadir {s.attendance || "—"}%</span></td><td><div className="row-actions"><button onClick={()=>setViewDetail(s)}>Lihat</button>{role==="admin"&&<><button onClick={()=>{setEdit(s);setModal(true)}}>Ubah</button><button className="delete" onClick={()=>setConfirm(s)}>Hapus</button></>}</div></td></tr>)}</tbody></table></div>:<Empty title="Siswa tidak ditemukan" desc="Coba ubah kata kunci atau filter kelas yang digunakan."/>}
+  const save=(e:React.FormEvent<HTMLFormElement>)=>{e.preventDefault(); const f=new FormData(e.currentTarget); const name=String(f.get("name")); const nis=String(f.get("nis")); const className=String(f.get("class")); if(edit)setStudents(x=>x.map(s=>s.id===edit.id?{...s,name,nis,className}:s));else setStudents(x=>[...x,{id:Date.now(),name,nis,className,status:"Aktif",current:0,previous:0,attendance:0,achievements:0}]);setModal(false);setEdit(null);notify("Data siswa berhasil disimpan.");};
+  return <PageShell eyebrow={role==="admin"?"DATA MASTER":"AKADEMIK"} title={role==="admin"?"Data Siswa":role==="guru"?"Siswa Saya":"Data Siswa"} desc={role==="admin"?"Kelola identitas dan penempatan kelas siswa.":role==="guru"?"Siswa dari kelas dan mata pelajaran yang Anda ampu.":"Lihat identitas, kelas, dan ringkasan akademik seluruh siswa."} action={role==="admin"?<Button icon="plus" onClick={()=>setModal(true)}>Tambah Siswa</Button>:undefined}>
+    <div className="card table-card"><div className="filterbar"><div className="search"><Icon name="search"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Cari nama siswa..."/></div><select value={klass} onChange={e=>setKlass(e.target.value)}><option>Semua Kelas</option><option>Kelas A</option><option>Kelas B</option><option>Kelas C</option></select><span className="result-count">{filtered.length} siswa ditemukan</span></div>
+      {filtered.length?<div className="table-wrap"><table><thead><tr><th>Siswa</th><th>Nomor Induk</th><th>Kelas</th><th>Status</th><th>Ringkasan</th><th/></tr></thead><tbody>{filtered.map(s=><tr key={s.id}><td><div className="student-cell"><div className="avatar">{s.name.split(" ").map(x=>x[0]).slice(0,2).join("")}</div><strong>{s.name}</strong></div></td><td>{s.nis}</td><td>{s.className}</td><td><Badge status={s.status}/></td><td><span className={s.attendance<80?"danger-text":""}>Nilai {s.current || "—"} · Hadir {s.attendance || "—"}%</span></td><td><div className="row-actions"><button onClick={()=>role==="kepsek"?setDetail(s):notify(`Detail ${s.name} dibuka.`)}>Lihat</button>{role==="admin"&&<><button onClick={()=>{setEdit(s);setModal(true)}}>Ubah</button><button className="delete" onClick={()=>setConfirm(s)}>Hapus</button></>}</div></td></tr>)}</tbody></table></div>:<Empty title="Siswa tidak ditemukan" desc="Coba ubah kata kunci atau filter kelas yang digunakan."/>}
       <div className="pagination"><span>Menampilkan 1–{filtered.length} dari {filtered.length} data</span><div><button disabled>‹</button><button className="active">1</button><button disabled>›</button></div></div>
     </div>
-    {viewDetail&&<Modal title={`Detail Siswa — ${viewDetail.name}`} onClose={()=>setViewDetail(null)} footer={<Button variant="secondary" onClick={()=>setViewDetail(null)}>Tutup</Button>}><div className="student-profile"><div className="profile-head"><div className="avatar large">{getInitials(viewDetail.name)}</div><div><h3>{viewDetail.name}</h3><p>{viewDetail.nis} · {viewDetail.className}</p><Badge status={viewDetail.status}/></div></div><div className="profile-stats"><div><span>Rata-rata Nilai</span><strong>{viewDetail.current}</strong><small className={viewDetail.current<viewDetail.previous?"danger-text":"positive"}>{viewDetail.current-viewDetail.previous>=0?"+":""}{viewDetail.current-viewDetail.previous} poin</small></div><div><span>Kehadiran</span><strong className={viewDetail.attendance<80?"danger-text":""}>{viewDetail.attendance}%</strong><small>Target min. 75%</small></div><div><span>Prestasi</span><strong>{viewDetail.achievements}</strong><small>Terverifikasi</small></div></div><div className="detail-grid" style={{marginTop:"1rem"}}><div><span>Nomor Induk Siswa (NIS)</span><strong>{viewDetail.nis}</strong></div><div><span>Rombongan Belajar (Kelas)</span><strong>{viewDetail.className}</strong></div><div><span>Tahun Ajaran / Semester</span><strong>2024/2025 · Genap</strong></div><div><span>Status Capaian</span><strong>{viewDetail.current>=75?"Tuntas (Memenuhi KKM)":"Perlu Bimbingan Tambahan"}</strong></div></div></div></Modal>}
-    {modal&&<Modal title={edit?"Ubah Data Siswa":"Tambah Siswa"} onClose={()=>{setModal(false);setEdit(null)}} footer={<><Button variant="secondary" onClick={()=>setModal(false)}>Batal</Button><Button type="submit" onClick={()=>document.getElementById("student-form")?.dispatchEvent(new Event("submit",{cancelable:true,bubbles:true}))}>Simpan Data</Button></>}><form id="student-form" onSubmit={save} className="form-grid"><Field label="Nama lengkap siswa"><input name="name" required defaultValue={edit?.name} placeholder="Nama siswa"/></Field><Field label="Nomor Induk Siswa (NIS)"><input name="nis" required defaultValue={edit?.nis} placeholder="Contoh: 2024007"/></Field><Field label="Penempatan kelas"><select name="class" defaultValue={edit?.className||classesList.find(c=>c!=="Semua Kelas")||"X IPA 1"}>{classesList.filter(c=>c!=="Semua Kelas").map(c=><option key={c}>{c}</option>)}</select></Field><Field label="Status"><select name="status" defaultValue={edit?.status || "Aktif"}><option value="Aktif">Aktif</option><option value="Non-Aktif">Non-Aktif</option><option value="Mutasi">Mutasi</option></select></Field></form></Modal>}
-    {confirm&&<Modal title="Hapus data siswa?" onClose={()=>setConfirm(null)} footer={<><Button variant="secondary" onClick={()=>setConfirm(null)}>Batal</Button><Button variant="danger" onClick={async()=>{try { await api.deleteStudent(confirm.id); setStudents(x=>x.filter(s=>s.id!==confirm.id));setConfirm(null);notify("Data siswa berhasil dihapus.") } catch(error) { notify(error instanceof Error?error.message:"Gagal menghapus siswa","error"); }}}>Ya, Hapus</Button></>}><div className="confirm-content"><div className="confirm-icon"><Icon name="alert"/></div><p>Data <strong>{confirm.name}</strong> akan dihapus. Tindakan ini tidak dapat dibatalkan.</p></div></Modal>}
+    {modal&&<Modal title={edit?"Ubah Data Siswa":"Tambah Siswa"} onClose={()=>{setModal(false);setEdit(null)}} footer={<><Button variant="secondary" onClick={()=>setModal(false)}>Batal</Button><Button type="submit" onClick={()=>document.getElementById("student-form")?.dispatchEvent(new Event("submit",{cancelable:true,bubbles:true}))}>Simpan Data</Button></>}><form id="student-form" onSubmit={save} className="form-grid"><Field label="Nama lengkap"><input name="name" required defaultValue={edit?.name} placeholder="Nama siswa"/></Field><Field label="Nomor induk siswa"><input name="nis" required defaultValue={edit?.nis} placeholder="Contoh: 2024007"/></Field><Field label="Penempatan kelas"><select name="class" defaultValue={edit?.className||"Kelas A"}><option>Kelas A</option><option>Kelas B</option><option>Kelas C</option></select></Field><Field label="Status"><select disabled><option>Aktif</option></select></Field></form></Modal>}
+    {confirm&&<Modal title="Hapus data siswa?" onClose={()=>setConfirm(null)} footer={<><Button variant="secondary" onClick={()=>setConfirm(null)}>Batal</Button><Button variant="danger" onClick={()=>{setStudents(x=>x.filter(s=>s.id!==confirm.id));setConfirm(null);notify("Data siswa berhasil dihapus.")}}>Ya, Hapus</Button></>}><div className="confirm-content"><div className="confirm-icon"><Icon name="alert"/></div><p>Data <strong>{confirm.name}</strong> akan dihapus. Tindakan ini tidak dapat dibatalkan.</p></div></Modal>}
+    {detail&&<Modal title="Detail Siswa" onClose={()=>setDetail(null)}><div className="student-profile"><div className="profile-head"><div className="avatar large">{detail.name.split(" ").map(x=>x[0]).slice(0,2).join("")}</div><div><h3>{detail.name}</h3><p>{detail.nis} · {detail.className} · Status {detail.status}</p></div></div><div className="profile-stats"><div><span>Rata-rata nilai</span><strong>{detail.current}</strong><small className={detail.current<detail.previous?"danger-text":"positive"}>{detail.current-detail.previous>=0?"+":""}{detail.current-detail.previous} poin</small></div><div><span>Kehadiran</span><strong>{detail.attendance}%</strong><small>12 pertemuan</small></div><div><span>Prestasi</span><strong>{detail.achievements}</strong><small>Terverifikasi</small></div></div><div className="tabs mini"><button className="active">Ringkasan</button><button>Nilai</button><button>Kehadiran</button><button>Prestasi</button></div><div className="profile-chart"><h3>Perkembangan akademik</h3><MiniChart/></div></div></Modal>}
   </PageShell>;
 }
 
 function MasterPage({ type, notify }: { type: "teachers"|"classes"|"subjects"|"assignments"; notify:(m:string)=>void }) {
-  const configs = {
-    teachers: {
-      eyebrow: "DATA MASTER",
-      title: "Guru dan Akun",
-      desc: "Kelola data guru, kredensial, dan ringkasan penugasan.",
-      button: "Tambah Guru",
-      heads: ["Guru", "Identitas Guru", "Username", "Penugasan"],
-      initialRows: [
-        ["Bambang Sudarmanto, M.Pd.", "GR-001", "bambang@simpatik.test", "2 kelas · 1 mapel"],
-        ["Siti Rahmawati, S.Si.", "GR-002", "siti.rahmawati@simpatik.test", "2 kelas · 1 mapel"],
-        ["M. Ridwan, S.Ag.", "GR-003", "m.ridwan@simpatik.test", "1 kelas · 1 mapel"],
-      ],
-    },
-    classes: {
-      eyebrow: "DATA MASTER",
-      title: "Data Kelas",
-      desc: "Kelola kelas, siswa, dan guru yang mengajar.",
-      button: "Tambah Kelas",
-      heads: ["Nama Kelas", "Jumlah Siswa", "Guru Mengajar", "Status"],
-      initialRows: [
-        ["X IPA 1", "3 siswa", "Bambang S. (Wali)", "Aktif"],
-        ["X IPA 2", "2 siswa", "Siti R. (Wali)", "Aktif"],
-        ["X IPS 1", "1 siswa", "Belum ada wali", "Aktif"],
-      ],
-    },
-    subjects: {
-      eyebrow: "DATA MASTER",
-      title: "Mata Pelajaran",
-      desc: "Kelola kode dan nama mata pelajaran kurikulum.",
-      button: "Tambah Mata Pelajaran",
-      heads: ["Kode", "Mata Pelajaran", "Jumlah Penugasan", "Status"],
-      initialRows: [
-        ["MTK", "Matematika", "2 penugasan", "Aktif"],
-        ["IPA", "Ilmu Pengetahuan Alam", "2 penugasan", "Aktif"],
-        ["IND", "Bahasa Indonesia", "1 penugasan", "Aktif"],
-      ],
-    },
-    assignments: {
-      eyebrow: "AKSES GURU",
-      title: "Penugasan Guru",
-      desc: "Hubungkan guru, kelas, dan mata pelajaran untuk menentukan akses penilaian.",
-      button: "Buat Penugasan",
-      heads: ["Guru", "Kelas", "Mata Pelajaran", "Semester"],
-      initialRows: [
-        ["Bambang Sudarmanto, M.Pd.", "X IPA 1", "Matematika", "Genap 2024/2025"],
-        ["Bambang Sudarmanto, M.Pd.", "X IPA 2", "Matematika", "Genap 2024/2025"],
-        ["Siti Rahmawati, S.Si.", "X IPA 1", "IPA", "Genap 2024/2025"],
-      ],
-    },
-  };
-
-  const config = configs[type];
-  const [rows, setRows] = useState<string[][]>(config.initialRows);
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("Semua Status");
-  const [modal, setModal] = useState(false);
-  const [editIndex, setEditIndex] = useState<number | null>(null);
-  const [detailRow, setDetailRow] = useState<string[] | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
-
-  // Form states tailored per master type
-  const [formValues, setFormValues] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    setRows(config.initialRows);
-    setQuery("");
-    setStatusFilter("Semua Status");
-    setModal(false);
-    setEditIndex(null);
-    setDetailRow(null);
-    setConfirmDelete(null);
-  }, [type]);
-
-  const filteredRows = useMemo(() => {
-    return rows.filter((r) => {
-      const matchText = r.some((c) => c.toLowerCase().includes(query.toLowerCase()));
-      if (!matchText) return false;
-      if (statusFilter !== "Semua Status") {
-        return r.some((c) => c === statusFilter);
-      }
-      return true;
-    });
-  }, [rows, query, statusFilter]);
-
-  const openAdd = () => {
-    setEditIndex(null);
-    if (type === "classes") {
-      setFormValues({ name: "", level: "Kelas 10", homeroom: "Bambang Sudarmanto, M.Pd.", status: "Aktif" });
-    } else if (type === "subjects") {
-      setFormValues({ code: "", name: "", group: "Kelompok A (Wajib)", hours: "4 JP / Minggu", status: "Aktif" });
-    } else if (type === "teachers") {
-      setFormValues({ name: "", nip: "", email: "", assignment: "1 kelas · 1 mapel", status: "Aktif" });
-    } else {
-      setFormValues({ teacher: "Bambang Sudarmanto, M.Pd.", className: "X IPA 1", subject: "Matematika", semester: "Genap 2024/2025" });
-    }
-    setModal(true);
-  };
-
-  const openEdit = (row: string[], idx: number) => {
-    setEditIndex(idx);
-    if (type === "classes") {
-      setFormValues({ name: row[0], level: "Kelas 10", homeroom: row[2].replace(" (Wali)", ""), status: row[3] || "Aktif" });
-    } else if (type === "subjects") {
-      setFormValues({ code: row[0], name: row[1], group: "Kelompok A (Wajib)", hours: "4 JP / Minggu", status: row[3] || "Aktif" });
-    } else if (type === "teachers") {
-      setFormValues({ name: row[0], nip: row[1], email: row[2], assignment: row[3] || "1 kelas · 1 mapel", status: "Aktif" });
-    } else {
-      setFormValues({ teacher: row[0], className: row[1], subject: row[2], semester: row[3] || "Genap 2024/2025" });
-    }
-    setModal(true);
-  };
-
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    let newRow: string[] = [];
-
-    if (type === "classes") {
-      const name = formValues.name?.trim() || "Kelas Baru";
-      const homeroom = formValues.homeroom ? `${formValues.homeroom.split(" ")[0]} (Wali)` : "Belum ada wali";
-      const status = formValues.status || "Aktif";
-      newRow = [name, "0 siswa", homeroom, status];
-    } else if (type === "subjects") {
-      const code = (formValues.code?.trim() || "MPL").toUpperCase();
-      const name = formValues.name?.trim() || "Mata Pelajaran Baru";
-      const status = formValues.status || "Aktif";
-      newRow = [code, name, "0 penugasan", status];
-    } else if (type === "teachers") {
-      const name = formValues.name?.trim() || "Guru Baru";
-      const nip = formValues.nip?.trim() || `GR-00${rows.length + 1}`;
-      const email = formValues.email?.trim() || `${name.toLowerCase().replace(/[^a-z]/g, "")}@simpatik.test`;
-      const assignment = formValues.assignment?.trim() || "1 kelas · 1 mapel";
-      newRow = [name, nip, email, assignment];
-    } else if (type === "assignments") {
-      const teacher = formValues.teacher || "Bambang Sudarmanto, M.Pd.";
-      const className = formValues.className || "X IPA 1";
-      const subject = formValues.subject || "Matematika";
-      const semester = formValues.semester || "Genap 2024/2025";
-      newRow = [teacher, className, subject, semester];
-    }
-
-    if (editIndex !== null) {
-      setRows((prev) => prev.map((r, i) => (i === editIndex ? newRow : r)));
-      notify(`Data ${config.title} berhasil diperbarui.`);
-    } else {
-      setRows((prev) => [...prev, newRow]);
-      notify(`Data ${config.title} berhasil ditambahkan.`);
-    }
-    setModal(false);
-  };
-
-  const handleDelete = (index: number) => {
-    setRows((prev) => prev.filter((_, i) => i !== index));
-    setConfirmDelete(null);
-    notify(`Data ${config.title} berhasil dihapus.`);
-  };
-
-  return (
-    <PageShell
-      eyebrow={config.eyebrow}
-      title={config.title}
-      desc={config.desc}
-      action={<Button icon="plus" onClick={openAdd}>{config.button}</Button>}
-    >
-      <div className="card table-card">
-        <div className="filterbar">
-          <div className="search">
-            <Icon name="search" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={`Cari ${config.title.toLowerCase()}...`}
-            />
-          </div>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="Semua Status">Semua Status</option>
-            <option value="Aktif">Aktif</option>
-            <option value="Nonaktif">Nonaktif</option>
-          </select>
-          <span className="result-count">{filteredRows.length} data ditemukan</span>
-        </div>
-        {filteredRows.length ? (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  {config.heads.map((h) => <th key={h}>{h}</th>)}
-                  <th style={{ textAlign: "right" }}>Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRows.map((r, i) => (
-                  <tr key={i}>
-                    {r.map((x, j) => (
-                      <td key={j}>
-                        {j === 0 ? (
-                          <strong>{x}</strong>
-                        ) : j === r.length - 1 && (x === "Aktif" || x === "Nonaktif") ? (
-                          <Badge status={x} />
-                        ) : (
-                          x
-                        )}
-                      </td>
-                    ))}
-                    <td>
-                      <div className="row-actions">
-                        <button onClick={() => setDetailRow(r)}>Lihat</button>
-                        <button onClick={() => openEdit(r, i)}>Ubah</button>
-                        <button className="delete" onClick={() => setConfirmDelete(i)}>Hapus</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <Empty title={`Tidak ada data ${config.title}`} desc="Coba ubah kata kunci pencarian atau tambahkan data baru." />
-        )}
-      </div>
-
-      {/* Modal Detail */}
-      {detailRow && (
-        <Modal
-          title={`Detail ${config.title} — ${detailRow[0]}`}
-          onClose={() => setDetailRow(null)}
-          footer={<Button variant="secondary" onClick={() => setDetailRow(null)}>Tutup</Button>}
-        >
-          <div className="detail-grid">
-            {config.heads.map((head, idx) => (
-              <div key={head}>
-                <span>{head}</span>
-                <strong>{detailRow[idx] || "—"}</strong>
-              </div>
-            ))}
-          </div>
-        </Modal>
-      )}
-
-      {/* Modal Tambah / Ubah */}
-      {modal && (
-        <Modal
-          title={editIndex !== null ? `Ubah ${config.title}` : config.button}
-          onClose={() => setModal(false)}
-          footer={
-            <>
-              <Button variant="secondary" onClick={() => setModal(false)}>Batal</Button>
-              <Button type="submit" onClick={() => document.getElementById("master-form")?.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }))}>
-                Simpan
-              </Button>
-            </>
-          }
-        >
-          <form id="master-form" onSubmit={handleSave} className="form-grid">
-            {type === "classes" && (
-              <>
-                <Field label="Nama Kelas">
-                  <input
-                    required
-                    placeholder="Contoh: X IPA 3"
-                    value={formValues.name || ""}
-                    onChange={(e) => setFormValues({ ...formValues, name: e.target.value })}
-                  />
-                </Field>
-                <Field label="Tingkat">
-                  <select
-                    value={formValues.level || "Kelas 10"}
-                    onChange={(e) => setFormValues({ ...formValues, level: e.target.value })}
-                  >
-                    <option value="Kelas 10">Kelas 10 (Fase E)</option>
-                    <option value="Kelas 11">Kelas 11 (Fase F)</option>
-                    <option value="Kelas 12">Kelas 12 (Fase F)</option>
-                  </select>
-                </Field>
-                <Field label="Wali Kelas">
-                  <select
-                    value={formValues.homeroom || "Bambang Sudarmanto, M.Pd."}
-                    onChange={(e) => setFormValues({ ...formValues, homeroom: e.target.value })}
-                  >
-                    <option value="Bambang Sudarmanto, M.Pd.">Bambang Sudarmanto, M.Pd.</option>
-                    <option value="Siti Rahmawati, S.Si.">Siti Rahmawati, S.Si.</option>
-                    <option value="M. Ridwan, S.Ag.">M. Ridwan, S.Ag.</option>
-                    <option value="Belum ada wali">Belum ada wali</option>
-                  </select>
-                </Field>
-                <Field label="Status Kelas">
-                  <select
-                    value={formValues.status || "Aktif"}
-                    onChange={(e) => setFormValues({ ...formValues, status: e.target.value })}
-                  >
-                    <option value="Aktif">Aktif</option>
-                    <option value="Nonaktif">Nonaktif</option>
-                  </select>
-                </Field>
-              </>
-            )}
-
-            {type === "subjects" && (
-              <>
-                <Field label="Kode Mata Pelajaran">
-                  <input
-                    required
-                    placeholder="Contoh: BIO, FIS, EKO"
-                    value={formValues.code || ""}
-                    onChange={(e) => setFormValues({ ...formValues, code: e.target.value })}
-                  />
-                </Field>
-                <Field label="Nama Mata Pelajaran">
-                  <input
-                    required
-                    placeholder="Contoh: Biologi, Fisika"
-                    value={formValues.name || ""}
-                    onChange={(e) => setFormValues({ ...formValues, name: e.target.value })}
-                  />
-                </Field>
-                <Field label="Kategori / Kelompok">
-                  <select
-                    value={formValues.group || "Kelompok A (Wajib)"}
-                    onChange={(e) => setFormValues({ ...formValues, group: e.target.value })}
-                  >
-                    <option value="Kelompok A (Wajib)">Kelompok A (Wajib)</option>
-                    <option value="Kelompok B (Umum)">Kelompok B (Umum)</option>
-                    <option value="Kelompok C (Peminatan)">Kelompok C (Peminatan)</option>
-                    <option value="Muatan Lokal">Muatan Lokal</option>
-                  </select>
-                </Field>
-                <Field label="Beban Jam Pembelajaran">
-                  <select
-                    value={formValues.hours || "4 JP / Minggu"}
-                    onChange={(e) => setFormValues({ ...formValues, hours: e.target.value })}
-                  >
-                    <option value="2 JP / Minggu">2 JP / Minggu</option>
-                    <option value="3 JP / Minggu">3 JP / Minggu</option>
-                    <option value="4 JP / Minggu">4 JP / Minggu</option>
-                  </select>
-                </Field>
-                <Field label="Status">
-                  <select
-                    value={formValues.status || "Aktif"}
-                    onChange={(e) => setFormValues({ ...formValues, status: e.target.value })}
-                  >
-                    <option value="Aktif">Aktif</option>
-                    <option value="Nonaktif">Nonaktif</option>
-                  </select>
-                </Field>
-              </>
-            )}
-
-            {type === "teachers" && (
-              <>
-                <Field label="Nama Lengkap & Gelar">
-                  <input
-                    required
-                    placeholder="Contoh: Ahmad Fauzi, S.Pd."
-                    value={formValues.name || ""}
-                    onChange={(e) => setFormValues({ ...formValues, name: e.target.value })}
-                  />
-                </Field>
-                <Field label="Identitas Guru (NIP / NUPTK)">
-                  <input
-                    required
-                    placeholder="Contoh: GR-004 atau 1985..."
-                    value={formValues.nip || ""}
-                    onChange={(e) => setFormValues({ ...formValues, nip: e.target.value })}
-                  />
-                </Field>
-                <Field label="Email / Username SIMPATIK">
-                  <input
-                    type="email"
-                    required
-                    placeholder="ahmad.fauzi@simpatik.test"
-                    value={formValues.email || ""}
-                    onChange={(e) => setFormValues({ ...formValues, email: e.target.value })}
-                  />
-                </Field>
-                <Field label="Ringkasan Penugasan">
-                  <input
-                    placeholder="Contoh: 2 kelas · 1 mapel"
-                    value={formValues.assignment || ""}
-                    onChange={(e) => setFormValues({ ...formValues, assignment: e.target.value })}
-                  />
-                </Field>
-              </>
-            )}
-
-            {type === "assignments" && (
-              <>
-                <Field label="Pilih Guru">
-                  <select
-                    value={formValues.teacher || "Bambang Sudarmanto, M.Pd."}
-                    onChange={(e) => setFormValues({ ...formValues, teacher: e.target.value })}
-                  >
-                    <option value="Bambang Sudarmanto, M.Pd.">Bambang Sudarmanto, M.Pd.</option>
-                    <option value="Siti Rahmawati, S.Si.">Siti Rahmawati, S.Si.</option>
-                    <option value="M. Ridwan, S.Ag.">M. Ridwan, S.Ag.</option>
-                  </select>
-                </Field>
-                <Field label="Pilih Kelas yang Diampu">
-                  <select
-                    value={formValues.className || "X IPA 1"}
-                    onChange={(e) => setFormValues({ ...formValues, className: e.target.value })}
-                  >
-                    <option value="X IPA 1">X IPA 1</option>
-                    <option value="X IPA 2">X IPA 2</option>
-                    <option value="X IPS 1">X IPS 1</option>
-                  </select>
-                </Field>
-                <Field label="Mata Pelajaran">
-                  <select
-                    value={formValues.subject || "Matematika"}
-                    onChange={(e) => setFormValues({ ...formValues, subject: e.target.value })}
-                  >
-                    <option value="Matematika">Matematika</option>
-                    <option value="IPA">Ilmu Pengetahuan Alam</option>
-                    <option value="Bahasa Indonesia">Bahasa Indonesia</option>
-                    <option value="Bahasa Inggris">Bahasa Inggris</option>
-                  </select>
-                </Field>
-                <Field label="Semester / Tahun Ajaran">
-                  <select
-                    value={formValues.semester || "Genap 2024/2025"}
-                    onChange={(e) => setFormValues({ ...formValues, semester: e.target.value })}
-                  >
-                    <option value="Genap 2024/2025">Genap 2024/2025</option>
-                    <option value="Ganjil 2024/2025">Ganjil 2024/2025</option>
-                  </select>
-                </Field>
-              </>
-            )}
-          </form>
-        </Modal>
-      )}
-
-      {/* Modal Konfirmasi Hapus */}
-      {confirmDelete !== null && (
-        <Modal
-          title={`Hapus data ${config.title}?`}
-          onClose={() => setConfirmDelete(null)}
-          footer={
-            <>
-              <Button variant="secondary" onClick={() => setConfirmDelete(null)}>Batal</Button>
-              <Button variant="danger" onClick={() => handleDelete(confirmDelete)}>Ya, Hapus</Button>
-            </>
-          }
-        >
-          <div className="confirm-content">
-            <div className="confirm-icon"><Icon name="alert" /></div>
-            <p>
-              Data <strong>{rows[confirmDelete]?.[0]}</strong> akan dihapus dari daftar {config.title}. Tindakan ini tidak dapat dibatalkan.
-            </p>
-          </div>
-        </Modal>
-      )}
-    </PageShell>
-  );
+  const config={
+    teachers:{eyebrow:"DATA MASTER",title:"Guru dan Akun",desc:"Kelola data guru, kredensial, dan ringkasan penugasan.",button:"Tambah Guru",heads:["Guru","Identitas Guru","Username","Penugasan"],rows:[["Andi Saputra, S.Pd.","GR-001","andi.saputra","2 kelas · 2 mapel"],["Nurhayati, S.Pd.","GR-002","nurhayati","1 kelas · 1 mapel"],["M. Ridwan, S.Ag.","GR-003","m.ridwan","3 kelas · 1 mapel"]]},
+    classes:{eyebrow:"DATA MASTER",title:"Data Kelas",desc:"Kelola kelas, siswa, dan guru yang mengajar.",button:"Tambah Kelas",heads:["Nama Kelas","Jumlah Siswa","Guru Mengajar","Status"],rows:[["Kelas A","3 siswa","4 guru","Aktif"],["Kelas B","2 siswa","3 guru","Aktif"],["Kelas C","1 siswa","3 guru","Aktif"]]},
+    subjects:{eyebrow:"DATA MASTER",title:"Mata Pelajaran",desc:"Kelola kode dan nama mata pelajaran.",button:"Tambah Mata Pelajaran",heads:["Kode","Mata Pelajaran","Jumlah Penugasan","Status"],rows:[["MTK","Matematika","2 penugasan","Aktif"],["IPA","Ilmu Pengetahuan Alam","2 penugasan","Aktif"],["PAI","Pendidikan Agama Islam","3 penugasan","Aktif"]]},
+    assignments:{eyebrow:"AKSES GURU",title:"Penugasan Guru",desc:"Hubungkan guru, kelas, dan mata pelajaran untuk menentukan akses.",button:"Buat Penugasan",heads:["Guru","Kelas","Mata Pelajaran","Semester"],rows:[["Andi Saputra, S.Pd.","Kelas A","Matematika","Genap 2024/2025"],["Andi Saputra, S.Pd.","Kelas B","IPA","Genap 2024/2025"],["Nurhayati, S.Pd.","Kelas A","Bahasa Indonesia","Genap 2024/2025"]]}
+  }[type]; const [open,setOpen]=useState(false);
+  return <PageShell eyebrow={config.eyebrow} title={config.title} desc={config.desc} action={<Button icon="plus" onClick={()=>setOpen(true)}>{config.button}</Button>}><div className="card table-card"><div className="filterbar"><div className="search"><Icon name="search"/><input placeholder={`Cari ${config.title.toLowerCase()}...`}/></div><select><option>Semua Status</option><option>Aktif</option></select></div><div className="table-wrap"><table><thead><tr>{config.heads.map(h=><th key={h}>{h}</th>)}<th/></tr></thead><tbody>{config.rows.map((r,i)=><tr key={i}>{r.map((x,j)=><td key={j}>{j===0?<strong>{x}</strong>:j===r.length-1&&x==="Aktif"?<Badge status={x}/>:x}</td>)}<td><div className="row-actions"><button onClick={()=>notify("Detail data dibuka.")}>Lihat</button><button onClick={()=>setOpen(true)}>Ubah</button><button className="delete" onClick={()=>notify("Data masih terhubung dan tidak dapat dihapus.")}>Hapus</button></div></td></tr>)}</tbody></table></div></div>
+  {open&&<Modal title={config.button} onClose={()=>setOpen(false)} footer={<><Button variant="secondary" onClick={()=>setOpen(false)}>Batal</Button><Button onClick={()=>{setOpen(false);notify("Data berhasil disimpan.")}}>Simpan</Button></>}><div className="form-grid"><Field label={type==="assignments"?"Pilih guru":"Nama"}><input placeholder="Masukkan data"/></Field><Field label={type==="assignments"?"Pilih kelas":"Kode / Identitas"}><select><option>Pilih data</option><option>Kelas A</option><option>Kelas B</option></select></Field>{type==="assignments"&&<Field label="Mata pelajaran"><select><option>Matematika</option><option>IPA</option></select></Field>}</div></Modal>}</PageShell>;
 }
 
-function GradesPage({ students, setStudents, notify, readOnly = false }: { students:Student[];setStudents:React.Dispatch<React.SetStateAction<Student[]>>;notify:(m:string)=>void;readOnly?:boolean }) {
-  const subjects = ["Matematika", "IPA", "Bahasa Indonesia", "Bahasa Inggris"];
-  const periods = ["Semester Genap · PTS", "Semester Genap · Tugas 1", "Semester Genap · PAS"];
+const teachersReadOnly = [
+  { name:"Andi Saputra, S.Pd.", id:"GR-001", classes:"Kelas A, Kelas B", subjects:"Matematika, IPA" },
+  { name:"Nurhayati, S.Pd.", id:"GR-002", classes:"Kelas A", subjects:"Bahasa Indonesia" },
+  { name:"M. Ridwan, S.Ag.", id:"GR-003", classes:"Kelas A, Kelas B, Kelas C", subjects:"Pendidikan Agama Islam" },
+];
 
-  const availableClasses = useMemo(() => {
-    const list = [...new Set(students.map(s => s.className).filter(Boolean))];
-    return list.length ? list : ["Semua Kelas"];
-  }, [students]);
-
-  const [selectedClass, setSelectedClass] = useState<string>(availableClasses[0] || "Semua Kelas");
-  const [selectedSubject, setSelectedSubject] = useState<string>("Matematika");
-  const [selectedPeriod, setSelectedPeriod] = useState<string>("Semester Genap · PTS");
-
-  // Persistent store for grades indexed by `${class}__${subject}__${period}__${studentId}`
-  const [scoresStore, setScoresStore] = useState<Record<string, string>>({});
-
-  const scoped = useMemo(() => {
-    if (selectedClass === "Semua Kelas") return students;
-    const f = students.filter(s => s.className === selectedClass);
-    return f.length ? f : students;
-  }, [students, selectedClass]);
-
-  // Deterministic baseline generator per subject and period so switching actually reflects different data
-  const getInitialScore = (s: Student, sub: string, per: string): string => {
-    const storeKey = `${s.className}__${sub}__${per}__${s.id}`;
-    if (scoresStore[storeKey] !== undefined) return scoresStore[storeKey];
-
-    const hash = (s.nis + sub + per).split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
-    let val = s.current;
-    if (sub === "IPA") {
-      val = Math.min(97, Math.max(68, s.current + ((hash % 11) - 5)));
-    } else if (sub === "Bahasa Indonesia") {
-      val = Math.min(96, Math.max(72, s.current + ((hash % 9) - 4)));
-    } else if (sub === "Bahasa Inggris") {
-      val = Math.min(95, Math.max(65, s.current + ((hash % 13) - 6)));
-    }
-    if (per.includes("Tugas 1")) {
-      val = Math.min(100, Math.max(65, val + 3));
-    } else if (per.includes("PAS")) {
-      val = Math.min(98, Math.max(60, val - 1));
-    }
-    return String(val);
-  };
-
-  const [values, setValues] = useState<Record<string, string>>(() => {
-    return Object.fromEntries(scoped.map(s => [s.id, getInitialScore(s, "Matematika", "Semester Genap · PTS")]));
-  });
-
-  const [dirty, setDirty] = useState(false);
-  const [errors, setErrors] = useState<string[]>([]);
-
-  // When class, subject, or period changes, recalculate values
-  useEffect(() => {
-    const nextVals = Object.fromEntries(
-      scoped.map(s => [s.id, getInitialScore(s, selectedSubject, selectedPeriod)])
-    );
-    setValues(nextVals);
-    setDirty(false);
-    setErrors([]);
-  }, [selectedClass, selectedSubject, selectedPeriod, scoped]);
-
-  const save = () => {
-    const bad = Object.entries(values).filter(([, v]) => Number(v) < 0 || Number(v) > 100 || v === "").map(([k]) => k);
-    if (bad.length) {
-      setErrors(bad);
-      return;
-    }
-
-    // Save into local subject scores store
-    const updatedStore = { ...scoresStore };
-    scoped.forEach(s => {
-      const storeKey = `${s.className}__${selectedSubject}__${selectedPeriod}__${s.id}`;
-      if (values[s.id] !== undefined) {
-        updatedStore[storeKey] = values[s.id];
-      }
-    });
-    setScoresStore(updatedStore);
-
-    // If saving active main subject (Matematika / current semester), also sync to students state
-    if (selectedSubject === "Matematika" && selectedPeriod.includes("PTS")) {
-      setStudents(x => x.map(s => values[s.id] !== undefined ? { ...s, current: Number(values[s.id]) } : s));
-    }
-
-    setDirty(false);
-    setErrors([]);
-    notify(`Nilai ${selectedSubject} (${selectedPeriod}) berhasil disimpan.`);
-  };
-
-  const numVals = Object.values(values).map(Number).filter(v => !isNaN(v));
-  const avg = scoped.length && numVals.length ? Math.round((numVals.reduce((a, b) => a + b, 0) / numVals.length) * 10) / 10 : 0;
-  const maxVal = numVals.length ? Math.max(...numVals) : 0;
-  const minVal = numVals.length ? Math.min(...numVals) : 0;
-  const tuntasCount = numVals.filter(v => v >= 75).length;
-
-  return (
-    <PageShell
-      eyebrow="PENILAIAN AKADEMIK"
-      title={readOnly ? "Data Nilai" : "Input Nilai"}
-      desc={readOnly ? "Lihat rekapitulasi data nilai seluruh siswa secara komprehensif." : "Isi dan perbarui nilai mata pelajaran sesuai penugasan Anda."}
-      action={!readOnly && dirty ? <span className="unsaved"><span/>Perubahan belum disimpan</span> : undefined}
-    >
-      <div className="card filters-panel">
-        <div className="three-filters">
-          <Field label="Kelas">
-            <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)}>
-              {availableClasses.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </Field>
-          <Field label="Mata pelajaran">
-            <select value={selectedSubject} onChange={e => setSelectedSubject(e.target.value)}>
-              {subjects.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </Field>
-          <Field label="Periode">
-            <select value={selectedPeriod} onChange={e => setSelectedPeriod(e.target.value)}>
-              {periods.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
-          </Field>
-        </div>
-        <div className="assumption">
-          <Icon name="help"/>
-          <span>Rentang penilaian 0–100. Kriteria Ketuntasan Minimal (KKM): 75. Perubahan mata pelajaran akan memuat nilai sesuai subjek tersebut.</span>
-        </div>
-      </div>
-
-      <div className="grade-layout">
-        <div className="card table-card">
-          <div className="card-head padded">
-            <div>
-              <h2>Daftar Nilai Siswa</h2>
-              <p>{selectedClass} · {selectedSubject} · {selectedPeriod}</p>
-            </div>
-            <strong>{scoped.length} siswa</strong>
-          </div>
-          {scoped.length ? (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Siswa</th>
-                    <th>Nilai Sebelumnya</th>
-                    <th>Nilai Terkini ({selectedSubject})</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {scoped.map(s => {
-                    const currentScore = Number(values[s.id] ?? getInitialScore(s, selectedSubject, selectedPeriod));
-                    const isTuntas = currentScore >= 75;
-                    return (
-                      <tr key={s.id}>
-                        <td>
-                          <div className="student-cell">
-                            <div className="avatar">{getInitials(s.name)}</div>
-                            <span style={{ fontWeight: 600 }}>{s.name}</span>
-                          </div>
-                        </td>
-                        <td>{Math.max(65, s.previous + (selectedSubject === "IPA" ? -2 : selectedSubject === "Bahasa Indonesia" ? 1 : 0))}</td>
-                        <td>
-                          <div>
-                            <input
-                              disabled={readOnly}
-                              className={`score-input ${errors.includes(s.id) ? "invalid" : ""}`}
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={values[s.id] ?? ""}
-                              onChange={e => {
-                                setValues({ ...values, [s.id]: e.target.value });
-                                setDirty(true);
-                              }}
-                            />
-                            {errors.includes(s.id) && <small className="field-error">Nilai harus 0–100</small>}
-                          </div>
-                        </td>
-                        <td>
-                          {isTuntas ? <Badge status="Tuntas" /> : <Badge status="Perlu Dukungan" />}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <Empty title="Tidak ada siswa" desc="Belum ada siswa yang terdaftar di kelas ini." />
-          )}
-          {!readOnly && (
-            <div className="savebar">
-              <span>
-                {dirty ? "Ada nilai yang berubah. Simpan sebelum berpindah mata pelajaran atau halaman." : `Nilai ${selectedSubject} tersimpan.`}
-              </span>
-              <Button icon="check" onClick={save} disabled={!dirty || !scoped.length}>
-                Simpan Nilai {selectedSubject}
-              </Button>
-            </div>
-          )}
-        </div>
-
-        <aside className="card grade-summary">
-          <span className="eyebrow">RINGKASAN KELAS</span>
-          <h2>{selectedSubject}</h2>
-          <strong className="big-number">{avg}</strong>
-          <span className="positive">Target KKM: ≥ 75</span>
-          <MiniChart />
-          <div className="summary-list">
-            <div>
-              <span>Nilai tertinggi</span>
-              <strong>{maxVal}</strong>
-            </div>
-            <div>
-              <span>Nilai terendah</span>
-              <strong>{minVal}</strong>
-            </div>
-            <div>
-              <span>Siswa tuntas</span>
-              <strong>{tuntasCount} / {scoped.length}</strong>
-            </div>
-            <div>
-              <span>Mata Pelajaran</span>
-              <strong>{selectedSubject}</strong>
-            </div>
-            <div>
-              <span>Periode</span>
-              <strong>{selectedPeriod.split("·")[1]?.trim() || selectedPeriod}</strong>
-            </div>
-          </div>
-        </aside>
-      </div>
-    </PageShell>
-  );
+function ReadOnlyTeachersPage() {
+  const [query,setQuery]=useState(""); const [detail,setDetail]=useState<(typeof teachersReadOnly)[number]|null>(null);
+  const list=teachersReadOnly.filter(t=>t.name.toLowerCase().includes(query.toLowerCase()));
+  return <PageShell eyebrow="MONITORING DATA" title="Data Guru" desc="Lihat data guru serta kelas dan mata pelajaran yang ditangani.">
+    <div className="card table-card"><div className="filterbar"><div className="search"><Icon name="search"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Cari nama guru..."/></div><select><option>Semua Mata Pelajaran</option><option>Matematika</option><option>IPA</option></select><span className="result-count">{list.length} guru ditemukan</span></div>
+      <div className="table-wrap"><table><thead><tr><th>Guru</th><th>Identitas Guru</th><th>Kelas Ditangani</th><th>Mata Pelajaran</th><th/></tr></thead><tbody>{list.map(t=><tr key={t.id}><td><div className="student-cell"><div className="avatar">{t.name.split(" ").map(x=>x[0]).slice(0,2).join("")}</div><strong>{t.name}</strong></div></td><td>{t.id}</td><td>{t.classes}</td><td>{t.subjects}</td><td><button className="text-btn" onClick={()=>setDetail(t)}>Detail penugasan <Icon name="arrow" size={14}/></button></td></tr>)}</tbody></table></div>
+      <div className="pagination"><span>Menampilkan 1–{list.length} dari {list.length} data</span><div><button disabled>‹</button><button className="active">1</button><button disabled>›</button></div></div>
+    </div>
+    {detail&&<Modal title="Detail Penugasan Guru" onClose={()=>setDetail(null)}><div className="student-profile"><div className="profile-head"><div className="avatar large">{detail.name.split(" ").map(x=>x[0]).slice(0,2).join("")}</div><div><h3>{detail.name}</h3><p>{detail.id} · Guru aktif</p></div></div><div className="detail-grid"><div><span>Kelas ditangani</span><strong>{detail.classes}</strong></div><div><span>Mata pelajaran</span><strong>{detail.subjects}</strong></div><div><span>Periode penugasan</span><strong>Semester Genap 2024/2025</strong></div><div><span>Status penugasan</span><strong>Aktif</strong></div></div></div></Modal>}
+  </PageShell>;
 }
 
-function AttendancePage({ students, setStudents, notify }: { students:Student[];setStudents:React.Dispatch<React.SetStateAction<Student[]>>;notify:(m:string)=>void }) {
-  const availableClasses = useMemo(() => {
-    const list = [...new Set(students.map(s => s.className).filter(Boolean))];
-    return list.length ? list : ["Semua Kelas"];
-  }, [students]);
+function ReadOnlyStructurePage() {
+  const classes=[["Kelas A","3 siswa","4 guru","Matematika, IPA, Bahasa Indonesia"],["Kelas B","2 siswa","3 guru","Matematika, IPA, PAI"],["Kelas C","1 siswa","3 guru","IPA, PAI, Bahasa Indonesia"]];
+  const subjects=[["MTK","Matematika","Andi Saputra, S.Pd.","Kelas A, Kelas B"],["IPA","Ilmu Pengetahuan Alam","Andi Saputra, S.Pd.","Kelas B"],["PAI","Pendidikan Agama Islam","M. Ridwan, S.Ag.","Kelas A, B, C"]];
+  return <PageShell eyebrow="MONITORING DATA" title="Kelas dan Mata Pelajaran" desc="Lihat hubungan kelas, siswa, mata pelajaran, dan guru terkait.">
+    <div className="card table-card"><div className="card-head padded"><div><h2>Daftar Kelas</h2><p>Ringkasan kelas aktif pada periode terpilih</p></div><Badge status="3 Kelas Aktif"/></div><div className="table-wrap"><table><thead><tr><th>Kelas</th><th>Jumlah Siswa</th><th>Guru Mengajar</th><th>Mata Pelajaran</th></tr></thead><tbody>{classes.map(r=><tr key={r[0]}>{r.map((v,i)=><td key={v}>{i===0?<strong>{v}</strong>:v}</td>)}</tr>)}</tbody></table></div></div>
+    <div className="card table-card"><div className="card-head padded"><div><h2>Daftar Mata Pelajaran</h2><p>Guru dan kelas yang terhubung</p></div><Badge status="3 Mata Pelajaran"/></div><div className="table-wrap"><table><thead><tr><th>Kode</th><th>Mata Pelajaran</th><th>Guru</th><th>Kelas</th></tr></thead><tbody>{subjects.map(r=><tr key={r[0]}>{r.map((v,i)=><td key={v}>{i===1?<strong>{v}</strong>:v}</td>)}</tr>)}</tbody></table></div></div>
+  </PageShell>;
+}
 
-  const [selectedClass, setSelectedClass] = useState<string>(availableClasses[0] || "Semua Kelas");
-  const [selectedSubject, setSelectedSubject] = useState<string>("Matematika");
-  const scoped = useMemo(() => {
-    if (selectedClass === "Semua Kelas") return students;
-    const f = students.filter(s => s.className === selectedClass);
-    return f.length ? f : students;
-  }, [students, selectedClass]);
+function ReadOnlyGradesPage({ students }: { students:Student[] }) {
+  const [klass,setKlass]=useState("Semua Kelas"); const [query,setQuery]=useState(""); const [detail,setDetail]=useState<Student|null>(null);
+  const list=students.filter(s=>(klass==="Semua Kelas"||s.className===klass)&&s.name.toLowerCase().includes(query.toLowerCase()));
+  const average=Math.round(list.reduce((sum,s)=>sum+s.current,0)/Math.max(1,list.length)*10)/10;
+  return <PageShell eyebrow="MONITORING AKADEMIK" title="Nilai Akademik" desc="Rekap nilai dan perkembangan siswa dalam tampilan baca-saja.">
+    <div className="card filters-panel"><div className="four-filters"><Field label="Kelas"><select value={klass} onChange={e=>setKlass(e.target.value)}><option>Semua Kelas</option><option>Kelas A</option><option>Kelas B</option><option>Kelas C</option></select></Field><Field label="Mata pelajaran"><select><option>Semua Mata Pelajaran</option><option>Matematika</option><option>IPA</option></select></Field><Field label="Siswa"><div className="search"><Icon name="search"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Cari siswa"/></div></Field><Field label="Periode"><select><option>Semester Genap · PTS</option><option>Semester Genap · Tugas 1</option></select></Field></div></div>
+    <div className="dashboard-grid"><div className="card table-card"><div className="card-head padded"><div><h2>Rekap Nilai Siswa</h2><p>{klass} · Semua Mata Pelajaran</p></div><Badge status={`${list.length} Siswa`}/></div><div className="table-wrap"><table><thead><tr><th>Siswa</th><th>Kelas</th><th>Periode Sebelumnya</th><th>Nilai Saat Ini</th><th>Perkembangan</th><th/></tr></thead><tbody>{list.map(s=><tr key={s.id}><td><strong>{s.name}</strong></td><td>{s.className}</td><td>{s.previous}</td><td><strong>{s.current}</strong></td><td><span className={s.current<s.previous?"danger-text":"positive"}>{s.current-s.previous>=0?"+":""}{s.current-s.previous} poin</span></td><td><button className="text-btn" onClick={()=>setDetail(s)}>Lihat tren <Icon name="arrow" size={14}/></button></td></tr>)}</tbody></table></div></div><section className="card chart-card"><div className="card-head"><div><h2>Tren Nilai Akademik</h2><p>Enam periode terakhir</p></div><Badge status={`Rata-rata ${average}`}/></div><MiniChart/><div className="chart-summary"><div><span>Rata-rata terkini</span><strong>{average}</strong></div><div><span>Nilai tertinggi</span><strong>{Math.max(...list.map(s=>s.current))}</strong></div><div><span>Nilai terendah</span><strong>{Math.min(...list.map(s=>s.current))}</strong></div></div></section></div>
+    <div className="assumption page-note"><Icon name="help"/><span>Perhitungan menggunakan aturan prototipe yang sama: rentang 0–100 dan rata-rata aritmetika.</span></div>
+    {detail&&<Modal title="Perkembangan Nilai Siswa" onClose={()=>setDetail(null)}><div className="student-profile"><div className="profile-head"><div className="avatar large">{detail.name.split(" ").map(x=>x[0]).slice(0,2).join("")}</div><div><h3>{detail.name}</h3><p>{detail.nis} · {detail.className}</p></div></div><div className="profile-chart"><h3>Nilai per periode</h3><MiniChart/></div></div></Modal>}
+  </PageShell>;
+}
 
-  const [tab,setTab]=useState("Catat Kehadiran");
-  const [statuses,setStatuses]=useState<Record<string,string>>({});
+function ReadOnlyAttendancePage({ students }: { students:Student[] }) {
+  const [klass,setKlass]=useState("Semua Kelas"); const list=students.filter(s=>klass==="Semua Kelas"||s.className===klass);
+  const average=Math.round(list.reduce((sum,s)=>sum+s.attendance,0)/Math.max(1,list.length)*10)/10;
+  return <PageShell eyebrow="MONITORING AKADEMIK" title="Kehadiran" desc="Lihat rekap dan riwayat kehadiran seluruh siswa.">
+    <div className="card filters-panel"><div className="three-filters"><Field label="Kelas"><select value={klass} onChange={e=>setKlass(e.target.value)}><option>Semua Kelas</option><option>Kelas A</option><option>Kelas B</option><option>Kelas C</option></select></Field><Field label="Mata pelajaran"><select><option>Semua Mata Pelajaran</option><option>Matematika</option><option>IPA</option></select></Field><Field label="Periode"><select><option>Semester Genap 2024/2025</option></select></Field></div></div>
+    <div className="stats-grid compact"><StatCard label="Rata-rata Kehadiran" value={`${average}%`} detail="Pertemuan yang telah tercatat" icon="calendar"/><StatCard label="Di Bawah Ambang" value={list.filter(s=>s.attendance<80).length} detail="Ambang demo di bawah 80%" icon="alert" tone="red"/><StatCard label="Pertemuan Tercatat" value="12" detail="Semester berjalan" icon="check" tone="blue"/></div>
+    <div className="card"><div className="card-head padded"><div><h2>Rekap Kehadiran Siswa</h2><p>Persentase dan status berdasarkan pertemuan tercatat</p></div></div><div className="history-list">{list.map(s=><div className="history-row" key={s.id}><div><strong>{s.name}</strong><span>{s.className} · 12 pertemuan tercatat</span></div><div className="progress"><span><i style={{width:`${s.attendance}%`}}/></span><strong className={s.attendance<80?"danger-text":""}>{s.attendance}%</strong></div><Badge status={s.attendance<80?"Kehadiran Rendah":"Kehadiran Baik"}/></div>)}</div></div>
+    <div className="assumption page-note"><Icon name="help"/><span>Rumus dan ambang mengikuti aturan demo yang tersedia: Hadir ÷ pertemuan tercatat, dengan peringatan di bawah 80%.</span></div>
+  </PageShell>;
+}
 
+function GradesPage({ students, setStudents, notify, kkmByCourse, setKkmByCourse, customTasks, setCustomTasks, taskScores, setTaskScores }: { students:Student[];setStudents:React.Dispatch<React.SetStateAction<Student[]>>;notify:(m:string, type?: "success" | "error")=>void;kkmByCourse:Record<string,number>;setKkmByCourse:React.Dispatch<React.SetStateAction<Record<string,number>>>;customTasks:Record<string,string[]>;setCustomTasks:React.Dispatch<React.SetStateAction<Record<string,string[]>>>;taskScores:Record<string,Record<number,string>>;setTaskScores:React.Dispatch<React.SetStateAction<Record<string,Record<number,string>>>> }) {
+  const teacherKey="guru"; const baseTasks=["PTS","Tugas 1"]; const period="Genap 2024/2025";
+  const [className,setClassName]=useState("Kelas A"); const [subject,setSubject]=useState("Matematika"); const [task,setTask]=useState("PTS");
+  const scoped=students.filter(s=>s.className===className); const scoreKey=`${teacherKey}|${className}|${subject}|${period}|${task}`; const kkmKey=`${subject}|${period}`;
+  const kkm=kkmByCourse[kkmKey]; const availableTasks=[...baseTasks,...(customTasks[teacherKey]||[])];
+  const [values,setValues]=useState<Record<number,string>>({}); const [dirty,setDirty]=useState(false); const [errors,setErrors]=useState<number[]>([]);
+  const [kkmModal,setKkmModal]=useState(false); const [kkmInput,setKkmInput]=useState(""); const [kkmError,setKkmError]=useState("");
+  const [taskModal,setTaskModal]=useState(false); const [taskInput,setTaskInput]=useState(""); const [taskError,setTaskError]=useState("");
+  useEffect(()=>{setValues(taskScores[scoreKey]||Object.fromEntries(scoped.map(s=>[s.id,scoreKey.endsWith("|PTS")&&subject==="Matematika"?String(s.current):""])));setDirty(false);setErrors([])},[scoreKey,className]);
+  const save=()=>{const bad=Object.entries(values).filter(([,v])=>v!==""&&(Number(v)<0||Number(v)>100)).map(([k])=>Number(k));if(bad.length){setErrors(bad);return;}setTaskScores(x=>({...x,[scoreKey]:values}));setStudents(x=>x.map(s=>values[s.id]!==undefined&&values[s.id]!==""?{...s,current:Number(values[s.id])}:s));setDirty(false);setErrors([]);notify("Nilai dan jenis tugas berhasil disimpan.");};
+  const saveKkm=()=>{const value=Number(kkmInput);if(kkmInput===""||value<0||value>100){setKkmError("KKM wajib diisi dengan nilai 0–100.");return;}setKkmByCourse(x=>({...x,[kkmKey]:value}));setKkmModal(false);setKkmError("");notify(`KKM ${subject} berhasil disimpan.`);};
+  const saveTask=()=>{const clean=taskInput.trim();if(!clean){setTaskError("Nama jenis tugas wajib diisi.");return;}if(availableTasks.some(x=>x.toLowerCase()===clean.toLowerCase())){setTaskError("Jenis tugas tersebut sudah tersedia.");return;}setCustomTasks(x=>({...x,[teacherKey]:[...(x[teacherKey]||[]),clean]}));setTask(clean);setTaskInput("");setTaskError("");setTaskModal(false);notify("Jenis tugas baru berhasil ditambahkan.");};
+  const assessed=Object.values(values).filter(v=>v!=="").map(Number); const avg=assessed.length?Math.round(assessed.reduce((a,v)=>a+v,0)/assessed.length*10)/10:0;
+  const statusFor=(value:string)=>kkm===undefined?<Badge status="KKM belum diatur"/>:value===""?<Badge status="Belum Dinilai"/>:Number(value)>=kkm?<Badge status="Tuntas"/>:<Badge status="Tidak Tuntas"/>;
+  return <PageShell eyebrow="PENILAIAN AKADEMIK" title="Input Nilai" desc="Isi dan perbarui nilai sesuai penugasan Anda." action={dirty?<span className="unsaved"><span/>Perubahan belum disimpan</span>:undefined}>
+    <div className="card filters-panel"><div className="grade-filters"><Field label="Kelas"><select value={className} onChange={e=>setClassName(e.target.value)}><option>Kelas A</option><option>Kelas B</option></select></Field><Field label="Mata pelajaran"><div className="field-action"><select value={subject} onChange={e=>setSubject(e.target.value)}><option>Matematika</option><option>IPA</option></select><Button variant="secondary" onClick={()=>{setKkmInput(kkm===undefined?"":String(kkm));setKkmModal(true)}}>Atur KKM</Button></div><small>{kkm===undefined?"KKM belum diatur":`KKM aktif: ${kkm}`}</small></Field><Field label="Periode"><select><option>Semester Genap 2024/2025</option></select></Field><Field label="Jenis Tugas"><select value={task} onChange={e=>{if(e.target.value==="__add"){setTaskModal(true)}else setTask(e.target.value)}}>{availableTasks.map(x=><option key={x}>{x}</option>)}<option value="__add">+ Tambah Jenis Tugas</option></select></Field></div><div className="assumption"><Icon name="help"/><span>Asumsi prototipe: nilai dan KKM menggunakan rentang 0–100. KKM berlaku untuk {subject} pada periode aktif.</span></div></div>
+    <div className="grade-layout"><div className="card table-card"><div className="card-head padded"><div><h2>Daftar Nilai Siswa</h2><p>{className} · {subject} · {task}</p></div><strong>{scoped.length} siswa</strong></div><div className="table-wrap"><table><thead><tr><th>Siswa</th><th>KKM</th><th>Nilai saat ini</th><th>Status</th></tr></thead><tbody>{scoped.map(s=><tr key={s.id}><td><div className="student-cell"><div className="avatar">{s.name.split(" ").map(x=>x[0]).slice(0,2).join("")}</div><button className="student-link">{s.name}</button></div></td><td>{kkm===undefined?<span className="muted">KKM belum diatur</span>:<strong>{kkm}</strong>}</td><td><div><input className={`score-input ${errors.includes(s.id)?"invalid":""}`} type="number" min="0" max="100" value={values[s.id]??""} placeholder="—" onChange={e=>{setValues({...values,[s.id]:e.target.value});setDirty(true)}}/>{errors.includes(s.id)&&<small className="field-error">Nilai harus 0–100</small>}</div></td><td>{statusFor(values[s.id]??"")}</td></tr>)}</tbody></table></div><div className="savebar"><span>{dirty?"Ada nilai yang berubah. Simpan sebelum berpindah halaman.":"Semua perubahan telah tersimpan."}</span><Button icon="check" onClick={save} disabled={!dirty}>Simpan Nilai</Button></div></div>
+      <aside className="card grade-summary"><span className="eyebrow">RINGKASAN</span><h2>Rata-rata Kelas</h2><strong className="big-number">{assessed.length?avg:"—"}</strong><span className="muted">{assessed.length} dari {scoped.length} siswa dinilai</span><MiniChart/><div className="summary-list"><div><span>Nilai tertinggi</span><strong>{assessed.length?Math.max(...assessed):"—"}</strong></div><div><span>Nilai terendah</span><strong>{assessed.length?Math.min(...assessed):"—"}</strong></div><div><span>Siswa tuntas</span><strong>{kkm===undefined?"—":assessed.filter(v=>v>=kkm).length} / {assessed.length}</strong></div></div></aside>
+    </div>
+    {kkmModal&&<Modal title={`Atur KKM ${subject}`} onClose={()=>setKkmModal(false)} footer={<><Button variant="secondary" onClick={()=>setKkmModal(false)}>Batal</Button><Button onClick={saveKkm}>Simpan KKM</Button></>}><Field label="Kriteria Ketuntasan Minimal" error={kkmError}><input type="number" min="0" max="100" value={kkmInput} onChange={e=>setKkmInput(e.target.value)} placeholder="Masukkan nilai 0–100"/></Field><div className="assumption"><Icon name="help"/><span>KKM disimpan satu kali untuk {subject} pada periode {period} dan tidak mengubah nilai siswa.</span></div></Modal>}
+    {taskModal&&<Modal title="Tambah Jenis Tugas" onClose={()=>setTaskModal(false)} footer={<><Button variant="secondary" onClick={()=>setTaskModal(false)}>Batal</Button><Button onClick={saveTask}>Simpan Jenis Tugas</Button></>}><Field label="Nama jenis tugas" error={taskError}><input value={taskInput} onChange={e=>setTaskInput(e.target.value)} placeholder="Contoh: Presentasi atau Proyek Kelompok"/></Field><div className="assumption"><Icon name="help"/><span>Jenis tugas tambahan hanya tersedia untuk akun Guru yang membuatnya.</span></div></Modal>}
+  </PageShell>;
+}
+
+function AttendancePage({ students, setStudents, notify }: { students:Student[];setStudents:React.Dispatch<React.SetStateAction<Student[]>>;notify:(m:string, type?: "success" | "error")=>void }) {
+  const scoped=students.filter(s=>s.className==="Kelas A"); const [tab,setTab]=useState("Catat Kehadiran"); const [statuses,setStatuses]=useState<Record<number,string>>({});
   const counts=["Hadir","Sakit","Izin","Alpa"].map(k=>({k,n:Object.values(statuses).filter(x=>x===k).length}));
-  const save=()=>{setStudents(x=>x.map(s=>statuses[s.id]?{...s,attendance:statuses[s.id]==="Hadir"?Math.min(100,s.attendance+1):Math.max(0,s.attendance-2)}:s));notify(`Kehadiran ${selectedSubject} berhasil disimpan dan rekap diperbarui.`);};
-
+  const save=()=>{setStudents(x=>x.map(s=>statuses[s.id]?{...s,attendance:statuses[s.id]==="Hadir"?Math.min(100,s.attendance+1):Math.max(0,s.attendance-2)}:s));notify("Kehadiran berhasil disimpan dan rekap diperbarui.");};
   return <PageShell eyebrow="AKADEMIK" title="Kehadiran Siswa" desc="Catat kehadiran per pertemuan dengan cepat dan akurat.">
     <div className="tabs">{["Catat Kehadiran","Riwayat","Rekap"].map(x=><button className={tab===x?"active":""} onClick={()=>setTab(x)} key={x}>{x}</button>)}</div>
     {tab === "Catat Kehadiran" ? (
       <>
         <div className="card filters-panel">
           <div className="three-filters">
-            <Field label="Kelas"><select value={selectedClass} onChange={e=>setSelectedClass(e.target.value)}>{availableClasses.map(c=><option key={c}>{c}</option>)}</select></Field>
-            <Field label="Mata pelajaran"><select value={selectedSubject} onChange={e=>setSelectedSubject(e.target.value)}><option value="Matematika">Matematika</option><option value="IPA">Ilmu Pengetahuan Alam</option><option value="Bahasa Indonesia">Bahasa Indonesia</option><option value="Bahasa Inggris">Bahasa Inggris</option></select></Field>
+            <Field label="Kelas"><select><option>Kelas A</option></select></Field>
+            <Field label="Mata pelajaran"><select><option>Matematika</option></select></Field>
             <Field label="Tanggal pertemuan"><input type="date" defaultValue="2025-02-24"/></Field>
           </div>
         </div>
         <div className="attendance-summary">
           {counts.map((item,index)=><div className="summary-chip" key={item.k}><span className={`status-color c${index}`}/><div><small>{item.k}</small><strong>{item.n}</strong></div></div>)}
-          <div className="summary-chip"><span className="status-color c4"/><div><small>Belum Diisi</small><strong>{Math.max(0, scoped.length-Object.keys(statuses).length)}</strong></div></div>
+          <div className="summary-chip"><span className="status-color c4"/><div><small>Belum Diisi</small><strong>{scoped.length-Object.keys(statuses).length}</strong></div></div>
         </div>
         <div className="card attendance-card">
-          <div className="card-head padded"><div><h2>Daftar Siswa · {selectedClass} · {selectedSubject}</h2><p>Senin, 24 Februari 2025</p></div><Button variant="secondary" icon="check" onClick={()=>setStatuses(Object.fromEntries(scoped.map(s=>[s.id,"Hadir"])))}>Tandai Semua Hadir</Button></div>
+          <div className="card-head padded"><div><h2>Daftar Siswa · Kelas A</h2><p>Senin, 24 Februari 2025</p></div><Button variant="secondary" icon="check" onClick={()=>setStatuses(Object.fromEntries(scoped.map(s=>[s.id,"Hadir"])))}>Tandai Semua Hadir</Button></div>
           <div className="attendance-list">
-            {scoped.map(s=><div className="attendance-row" key={s.id}><div className="student-cell"><div className="avatar">{getInitials(s.name)}</div><div><strong>{s.name}</strong><span>{s.nis}</span></div></div><div className="attendance-options">{["Hadir","Sakit","Izin","Alpa"].map(x=><button className={statuses[s.id]===x?`selected ${x.toLowerCase()}`:""} onClick={()=>setStatuses({...statuses,[s.id]:x})} key={x}>{x}</button>)}</div></div>)}
+            {scoped.map(s=><div className="attendance-row" key={s.id}><div className="student-cell"><div className="avatar">{s.name.split(" ").map(x=>x[0]).slice(0,2).join("")}</div><div><strong>{s.name}</strong><span>{s.nis}</span></div></div><div className="attendance-options">{["Hadir","Sakit","Izin","Alpa"].map(x=><button className={statuses[s.id]===x?`selected ${x.toLowerCase()}`:""} onClick={()=>setStatuses({...statuses,[s.id]:x})} key={x}>{x}</button>)}</div></div>)}
           </div>
           <div className="savebar"><span>{Object.keys(statuses).length < scoped.length ? `${scoped.length-Object.keys(statuses).length} siswa belum diisi` : "Semua siswa telah diisi"}</span><Button onClick={save}>Simpan Kehadiran</Button></div>
         </div>
@@ -1045,157 +301,84 @@ function AttendancePage({ students, setStudents, notify }: { students:Student[];
     ) : (
       <div className="card"><div className="history-list">{scoped.map(s=><div className="history-row" key={s.id}><div><strong>{s.name}</strong><span>{s.className} · 12 pertemuan tercatat</span></div><div className="progress"><span><i style={{width:`${s.attendance}%`}}/></span><strong className={s.attendance < 80 ? "danger-text" : ""}>{s.attendance}%</strong></div>{s.attendance < 80 && <Badge status="Kehadiran Rendah"/>}</div>)}</div></div>
     )}
-    <div className="assumption page-note"><Icon name="help"/><span>Ambang batas kehadiran standar adalah 75%. Peringatan dini muncul di bawah 80%.</span></div>
+    <div className="assumption page-note"><Icon name="help"/><span>Asumsi demo: persentase = Hadir ÷ pertemuan tercatat. Belum Diisi tidak dihitung; peringatan muncul di bawah 80%.</span></div>
   </PageShell>;
 }
 
-function AchievementsPage({ role, achievements, setAchievements, students, notify }: { role:Role;achievements:Achievement[];setAchievements:React.Dispatch<React.SetStateAction<Achievement[]>>;students:Student[];notify:(m:string)=>void }) {
-  const [status,setStatus]=useState("Semua Status");
-  const [selected,setSelected]=useState<Achievement|null>(null);
-  const [add,setAdd]=useState(false);
-  const list=achievements.filter(a=>status==="Semua Status"||a.status===status);
-
-  const update=(s:Achievement["status"])=>{
-    if(!selected)return;
-    setAchievements(x=>x.map(a=>a.id===selected.id?{...a,status:s,note:s==="Perlu Revisi"?"Mohon unggah bukti yang lebih jelas dan lengkap.":a.note}:a));
-    setSelected(null);
-    notify(s==="Terverifikasi"?"Prestasi berhasil diverifikasi.":"Pengajuan dikembalikan untuk revisi.");
-  };
-
-  return <PageShell eyebrow="PRESTASI SISWA" title={role==="admin"?"Verifikasi Prestasi":"Pengajuan Prestasi"} desc={role==="admin"?"Periksa bukti dan verifikasi pengajuan dari Guru.":"Ajukan dan pantau status prestasi siswa."} action={role==="guru"?<Button icon="plus" onClick={()=>setAdd(true)}>Tambah Prestasi</Button>:undefined}>
+function AchievementsPage({ role, achievements, setAchievements, students, notify }: { role:Role;achievements:Achievement[];setAchievements:React.Dispatch<React.SetStateAction<Achievement[]>>;students:Student[];notify:(m:string, type?: "success" | "error")=>void }) {
+  const [status,setStatus]=useState("Semua Status"); const [selected,setSelected]=useState<Achievement|null>(null); const [add,setAdd]=useState(false); const list=achievements.filter(a=>status==="Semua Status"||a.status===status);
+  const update=(s:Achievement["status"])=>{if(!selected)return;setAchievements(x=>x.map(a=>a.id===selected.id?{...a,status:s,note:s==="Perlu Revisi"?"Mohon unggah bukti yang lebih jelas dan lengkap.":a.note}:a));setSelected(null);notify(s==="Terverifikasi"?"Prestasi berhasil diverifikasi.":"Pengajuan dikembalikan untuk revisi.");};
+  return <PageShell eyebrow="PRESTASI SISWA" title={role==="admin"?"Verifikasi Prestasi":role==="guru"?"Pengajuan Prestasi":"Prestasi Siswa"} desc={role==="admin"?"Periksa bukti dan verifikasi pengajuan dari Guru.":role==="guru"?"Ajukan dan pantau status prestasi siswa.":"Lihat prestasi, status pengajuan, bukti, dan riwayat yang tersimpan."} action={role==="guru"?<Button icon="plus" onClick={()=>setAdd(true)}>Tambah Prestasi</Button>:undefined}>
     <div className="stats-grid compact"><StatCard label="Menunggu Verifikasi" value={achievements.filter(a=>a.status==="Menunggu Verifikasi").length} detail="Perlu diperiksa" icon="calendar" tone="amber"/><StatCard label="Perlu Revisi" value={achievements.filter(a=>a.status==="Perlu Revisi").length} detail="Menunggu perbaikan" icon="alert" tone="red"/><StatCard label="Terverifikasi" value={achievements.filter(a=>a.status==="Terverifikasi").length} detail="Telah disetujui" icon="check"/></div>
     <div className="card table-card"><div className="filterbar"><div className="search"><Icon name="search"/><input placeholder="Cari prestasi atau siswa..."/></div><select value={status} onChange={e=>setStatus(e.target.value)}><option>Semua Status</option><option>Menunggu Verifikasi</option><option>Perlu Revisi</option><option>Terverifikasi</option></select><select><option>Semua Bidang</option><option>Akademik</option><option>Keagamaan</option></select></div><div className="table-wrap"><table><thead><tr><th>Siswa</th><th>Prestasi</th><th>Kategori</th><th>Tanggal</th><th>Status</th><th/></tr></thead><tbody>{list.map(a=><tr key={a.id}><td><strong>{a.student}</strong></td><td><strong>{a.name}</strong><small className="cell-sub">{a.result}</small></td><td>{a.field} · {a.level}</td><td>{a.date}</td><td><Badge status={a.status}/></td><td><button className="text-btn" onClick={()=>setSelected(a)}>Lihat detail <Icon name="arrow" size={14}/></button></td></tr>)}</tbody></table></div></div>
     {selected&&<Modal title="Detail Pengajuan Prestasi" onClose={()=>setSelected(null)} footer={role==="admin"&&selected.status==="Menunggu Verifikasi"?<><Button variant="secondary" onClick={()=>update("Perlu Revisi")}>Kembalikan untuk Revisi</Button><Button onClick={()=>update("Terverifikasi")}>Verifikasi Prestasi</Button></>:role==="guru"&&selected.status==="Perlu Revisi"?<Button onClick={()=>update("Menunggu Verifikasi")}>Revisi & Ajukan Kembali</Button>:undefined}><div className="achievement-detail"><div className="detail-hero"><div className="submission-icon large"><Icon name="award" size={28}/></div><div><Badge status={selected.status}/><h3>{selected.name}</h3><p>{selected.student} · {selected.field} · Tingkat {selected.level}</p></div></div>{selected.note&&<div className="admin-note"><Icon name="alert"/><div><strong>Catatan Admin</strong><p>{selected.note}</p></div></div>}<div className="detail-grid"><div><span>Pencapaian</span><strong>{selected.result}</strong></div><div><span>Tanggal kegiatan</span><strong>{selected.date}</strong></div><div><span>Bukti pendukung</span><strong>sertifikat-prestasi.pdf</strong></div><div><span>Riwayat</span><strong>Diajukan oleh Guru</strong></div></div><div className="proof"><Icon name="file" size={32}/><div><strong>Pratinjau Bukti</strong><span>Dokumen PDF · 1,2 MB</span></div><Button variant="secondary">Lihat Bukti</Button></div></div></Modal>}
-    {add&&<Modal title="Tambah Pengajuan Prestasi" onClose={()=>setAdd(false)} footer={<><Button variant="secondary" onClick={()=>setAdd(false)}>Batal</Button><Button onClick={()=>{const studentName = students[0]?.name || "Siswa Teladan"; setAchievements(x=>[...x,{id:String(Date.now()),student:studentName,name:"Festival Sains Pelajar",field:"Akademik",level:"Kota",date:"24 Feb 2025",result:"Juara Harapan",status:"Menunggu Verifikasi"}]);setAdd(false);notify("Prestasi berhasil diajukan untuk verifikasi.")}}>Ajukan Prestasi</Button></>}><div className="form-grid"><Field label="Siswa"><select>{students.length ? students.slice(0,10).map(s=><option key={s.id}>{s.name}</option>) : <option>Siswa</option>}</select></Field><Field label="Nama prestasi"><input placeholder="Contoh: Juara 1 Tahfiz"/></Field><Field label="Bidang"><select><option>Akademik</option><option>Keagamaan</option><option>Olahraga</option></select></Field><Field label="Tingkat kompetisi"><select><option>Kota</option><option>Provinsi</option><option>Nasional</option></select></Field><Field label="Pencapaian"><input placeholder="Contoh: Juara 1"/></Field><Field label="Tanggal"><input type="date"/></Field><label className="upload"><Icon name="file"/><strong>Unggah sertifikat atau bukti</strong><span>PDF, JPG, atau PNG · Maks. 5 MB</span></label></div></Modal>}
+    {add&&<Modal title="Tambah Pengajuan Prestasi" onClose={()=>setAdd(false)} footer={<><Button variant="secondary" onClick={()=>setAdd(false)}>Simpan Draf</Button><Button onClick={()=>{setAchievements(x=>[...x,{id:Date.now(),student:students[0].name,name:"Festival Sains Pelajar",field:"Akademik",level:"Kota",date:"24 Feb 2025",result:"Juara Harapan",status:"Menunggu Verifikasi"}]);setAdd(false);notify("Prestasi berhasil diajukan untuk verifikasi.")}}>Ajukan Prestasi</Button></>}><div className="form-grid"><Field label="Siswa"><select>{students.slice(0,4).map(s=><option key={s.id}>{s.name}</option>)}</select></Field><Field label="Nama prestasi"><input placeholder="Contoh: Juara 1 Tahfiz"/></Field><Field label="Bidang"><select><option>Akademik</option><option>Keagamaan</option><option>Olahraga</option></select></Field><Field label="Tingkat kompetisi"><select><option>Kota</option><option>Provinsi</option><option>Nasional</option></select></Field><Field label="Pencapaian"><input placeholder="Contoh: Juara 1"/></Field><Field label="Tanggal"><input type="date"/></Field><label className="upload"><Icon name="file"/><strong>Unggah sertifikat atau bukti</strong><span>PDF, JPG, atau PNG · Maks. 5 MB</span></label></div></Modal>}
   </PageShell>;
 }
 
 function MonitoringPage({ students }: { students:Student[] }) {
-  const classesList = useMemo(() => ["Semua Kelas", ...new Set(students.map(s => s.className).filter(Boolean))], [students]);
-  const [klass,setKlass]=useState("Semua Kelas");
-  const [detail,setDetail]=useState<Student|null>(null);
-  const list=students.filter(s=>klass==="Semua Kelas"||s.className===klass);
-
-  return <PageShell eyebrow="MONITORING" title="Perkembangan Siswa" desc="Lihat nilai, kehadiran, dan prestasi sebagai indikator yang saling melengkapi."><div className="card table-card"><div className="filterbar"><div className="search"><Icon name="search"/><input placeholder="Cari nama siswa..."/></div><select value={klass} onChange={e=>setKlass(e.target.value)}>{classesList.map(c=><option key={c}>{c}</option>)}</select><select><option>Semester Genap 2024/2025</option></select></div><div className="table-wrap"><table><thead><tr><th>Siswa</th><th>Kelas</th><th>Rata-rata Nilai</th><th>Kehadiran</th><th>Prestasi</th><th>Indikator</th><th/></tr></thead><tbody>{list.map(s=>{const reason=s.attendance<80?"Kehadiran Rendah":s.current<s.previous?"Nilai Menurun":"Perkembangan Baik";return <tr key={s.id}><td><div className="student-cell"><div className="avatar">{getInitials(s.name)}</div><div><strong>{s.name}</strong><small className="cell-sub">{s.nis}</small></div></div></td><td>{s.className}</td><td><strong>{s.current}</strong><small className={`cell-sub ${s.current<s.previous?"danger-text":"positive"}`}>{s.current-s.previous>=0?"+":""}{s.current-s.previous} poin</small></td><td><strong className={s.attendance<80?"danger-text":""}>{s.attendance}%</strong></td><td>{s.achievements} terverifikasi</td><td><Badge status={reason}/></td><td><button className="text-btn" onClick={()=>setDetail(s)}>Detail <Icon name="arrow" size={14}/></button></td></tr>})}</tbody></table></div></div>
-  <div className="assumption page-note"><Icon name="help"/><span>Indikator kewaspadaan: Kehadiran di bawah 80% atau penurunan nilai dari periode sebelumnya.</span></div>
-  {detail&&<Modal title="Detail Perkembangan Siswa" onClose={()=>setDetail(null)}><div className="student-profile"><div className="profile-head"><div className="avatar large">{getInitials(detail.name)}</div><div><h3>{detail.name}</h3><p>{detail.nis} · {detail.className}</p></div></div><div className="profile-stats"><div><span>Rata-rata nilai</span><strong>{detail.current}</strong><small className={detail.current<detail.previous?"danger-text":"positive"}>{detail.current-detail.previous} poin</small></div><div><span>Kehadiran</span><strong>{detail.attendance}%</strong><small>12 pertemuan</small></div><div><span>Prestasi</span><strong>{detail.achievements}</strong><small>Terverifikasi</small></div></div><div className="tabs mini"><button className="active">Ringkasan</button><button>Nilai</button><button>Kehadiran</button><button>Prestasi</button></div><div className="profile-chart"><h3>Grafik nilai per periode</h3><MiniChart/></div>{(detail.attendance<80||detail.current<detail.previous)&&<div className="admin-note"><Icon name="alert"/><div><strong>Alasan perhatian</strong><p>{detail.attendance<80?`Kehadiran ${detail.attendance}% berada di bawah ambang batas.`:`Nilai turun ${detail.previous-detail.current} poin dibanding periode sebelumnya.`}</p></div></div>}</div></Modal>}</PageShell>;
+  const [klass,setKlass]=useState("Semua Kelas"); const [detail,setDetail]=useState<Student|null>(null); const list=students.filter(s=>klass==="Semua Kelas"||s.className===klass);
+  return <PageShell eyebrow="MONITORING" title="Perkembangan Siswa" desc="Lihat nilai, kehadiran, dan prestasi sebagai indikator yang saling melengkapi."><div className="card table-card"><div className="filterbar"><div className="search"><Icon name="search"/><input placeholder="Cari nama siswa..."/></div><select value={klass} onChange={e=>setKlass(e.target.value)}><option>Semua Kelas</option><option>Kelas A</option><option>Kelas B</option><option>Kelas C</option></select><select><option>Semester Genap 2024/2025</option></select></div><div className="table-wrap"><table><thead><tr><th>Siswa</th><th>Kelas</th><th>Rata-rata Nilai</th><th>Kehadiran</th><th>Prestasi</th><th>Indikator</th><th/></tr></thead><tbody>{list.map(s=>{const reason=s.attendance<80?"Kehadiran Rendah":s.current<s.previous?"Nilai Menurun":"Perkembangan Baik";return <tr key={s.id}><td><div className="student-cell"><div className="avatar">{s.name.split(" ").map(x=>x[0]).slice(0,2).join("")}</div><div><strong>{s.name}</strong><small className="cell-sub">{s.nis}</small></div></div></td><td>{s.className}</td><td><strong>{s.current}</strong><small className={`cell-sub ${s.current<s.previous?"danger-text":"positive"}`}>{s.current-s.previous>=0?"+":""}{s.current-s.previous} poin</small></td><td><strong className={s.attendance<80?"danger-text":""}>{s.attendance}%</strong></td><td>{s.achievements} terverifikasi</td><td><Badge status={reason}/></td><td><button className="text-btn" onClick={()=>setDetail(s)}>Detail <Icon name="arrow" size={14}/></button></td></tr>})}</tbody></table></div></div>
+  <div className="assumption page-note"><Icon name="help"/><span>Penurunan nilai berarti rata-rata periode berjalan lebih rendah dari periode sebelumnya. Skor perkembangan gabungan belum ditetapkan.</span></div>
+  {detail&&<Modal title="Detail Perkembangan Siswa" onClose={()=>setDetail(null)}><div className="student-profile"><div className="profile-head"><div className="avatar large">{detail.name.split(" ").map(x=>x[0]).slice(0,2).join("")}</div><div><h3>{detail.name}</h3><p>{detail.nis} · {detail.className}</p></div></div><div className="profile-stats"><div><span>Rata-rata nilai</span><strong>{detail.current}</strong><small className={detail.current<detail.previous?"danger-text":"positive"}>{detail.current-detail.previous} poin</small></div><div><span>Kehadiran</span><strong>{detail.attendance}%</strong><small>12 pertemuan</small></div><div><span>Prestasi</span><strong>{detail.achievements}</strong><small>Terverifikasi</small></div></div><div className="tabs mini"><button className="active">Ringkasan</button><button>Nilai</button><button>Kehadiran</button><button>Prestasi</button></div><div className="profile-chart"><h3>Grafik nilai per periode</h3><MiniChart/></div>{(detail.attendance<80||detail.current<detail.previous)&&<div className="admin-note"><Icon name="alert"/><div><strong>Alasan perhatian</strong><p>{detail.attendance<80?`Kehadiran ${detail.attendance}% berada di bawah ambang demo 80%.`:`Nilai turun ${detail.previous-detail.current} poin dibanding periode sebelumnya.`}</p></div></div>}</div></Modal>}</PageShell>;
 }
 
-function ReportsPage({ role, students, notify }: { role:Role;students:Student[];notify:(m:string)=>void }) {
-  const [shown,setShown]=useState(false);
-  const [type,setType]=useState("Data Siswa");
-  const classesList = useMemo(() => ["Semua Kelas", ...new Set(students.map(s => s.className).filter(Boolean))], [students]);
-  const [selectedClass, setSelectedClass] = useState("Semua Kelas");
-  const [selectedSubject, setSelectedSubject] = useState("Semua Mata Pelajaran");
-
-  const filtered = useMemo(() => {
-    if (selectedClass === "Semua Kelas") return students;
-    return students.filter(s => s.className === selectedClass);
-  }, [students, selectedClass]);
-
-  const exportCsv=()=>{
-    const csv=["Nama,NIS,Kelas,Nilai,Kehadiran",...filtered.map(s=>`${s.name},${s.nis},${s.className},${s.current},${s.attendance}%`)].join("\n");
-    const a=document.createElement("a");
-    a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
-    a.download=`laporan-${type.toLowerCase().replace(/\s+/g, "-")}.csv`;
-    a.click();
-    notify("Laporan CSV berhasil diekspor.");
-  };
-
-  return <PageShell eyebrow="LAPORAN" title="Pusat Laporan" desc={`Tampilkan dan ekspor data ${role==="guru"?"sesuai penugasan Anda":"seluruh sekolah"}.`}><div className="card report-filter"><div className="card-head"><div><h2>Atur Laporan</h2><p>Pilih jenis laporan dan filter yang diperlukan.</p></div></div><div className="four-filters"><Field label="Jenis laporan"><select value={type} onChange={e=>setType(e.target.value)}><option>Data Siswa</option><option>Nilai</option><option>Kehadiran</option><option>Prestasi</option></select></Field><Field label="Kelas"><select value={selectedClass} onChange={e=>setSelectedClass(e.target.value)}>{classesList.map(c=><option key={c}>{c}</option>)}</select></Field><Field label="Mata pelajaran"><select value={selectedSubject} onChange={e=>setSelectedSubject(e.target.value)}><option>Semua Mata Pelajaran</option><option>Matematika</option><option>IPA</option><option>Bahasa Indonesia</option><option>Bahasa Inggris</option></select></Field><Field label="Periode"><select><option>Semester Genap 2024/2025</option><option>Semester Ganjil 2024/2025</option></select></Field></div><div className="report-actions"><Button variant="ghost" onClick={()=>{setShown(false);setSelectedClass("Semua Kelas");setSelectedSubject("Semua Mata Pelajaran");}}>Reset Filter</Button><Button onClick={()=>setShown(true)}>Tampilkan Laporan</Button></div></div>
-  {shown?<div className="card table-card"><div className="card-head padded"><div><span className="eyebrow">PRATINJAU LAPORAN</span><h2>{type}</h2><p>{selectedClass} · {selectedSubject} · Semester Genap 2024/2025 · {filtered.length} data</p></div><Button variant="secondary" icon="download" onClick={exportCsv}>Ekspor CSV</Button></div><div className="active-filters"><span>Filter aktif:</span><Badge status={selectedClass}/><Badge status={selectedSubject}/><Badge status="Semester Genap 2024/2025"/></div><div className="table-wrap"><table><thead><tr><th>Nama Siswa</th><th>NIS</th><th>Kelas</th><th>Nilai</th><th>Kehadiran</th></tr></thead><tbody>{filtered.map(s=><tr key={s.id}><td><strong>{s.name}</strong></td><td>{s.nis}</td><td>{s.className}</td><td>{s.current}</td><td>{s.attendance}%</td></tr>)}</tbody></table></div></div>:<div className="card"><Empty title="Laporan belum ditampilkan" desc="Atur filter di atas, lalu pilih Tampilkan Laporan untuk melihat pratinjau."/></div>}
+function ReportsPage({ role, students, notify }: { role:Role;students:Student[];notify:(m:string, type?: "success" | "error")=>void }) {
+  const [shown,setShown]=useState(false); const [type,setType]=useState("Data Siswa"); const [classFilter,setClassFilter]=useState("Semua Kelas"); const [subject,setSubject]=useState("Semua Mata Pelajaran"); const period="Semester Genap 2024/2025";
+  const filtered=students.filter(s=>classFilter==="Semua Kelas"||s.className===classFilter);
+  const headers=["Nama Siswa","NIS","Kelas","Nilai","Kehadiran"]; const rows=filtered.map(s=>[s.name,s.nis,s.className,String(s.current),`${s.attendance}%`]);
+  const subtitle=`Periode: ${period} | Kelas: ${classFilter} | Mata Pelajaran: ${subject}`;
+  const downloadBlob=(blob:Blob,name:string)=>{const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=name;a.click();window.setTimeout(()=>URL.revokeObjectURL(url),1000)};
+  const exportExcel=()=>{const escape=(v:string)=>`"${v.replaceAll("\"","\"\"")}"`;const csv="\uFEFF"+[headers,...rows].map(row=>row.map(escape).join(",")).join("\n");downloadBlob(new Blob([csv],{type:"text/csv;charset=utf-8"}),"laporan-simpatik.csv");notify("Laporan Excel berhasil diekspor.");};
+  const exportWord=async()=>{try{const {Document,Packer,Paragraph,Table,TableCell,TableRow,TextRun,HeadingLevel,WidthType}=await import("docx");const tableRows=[headers,...rows].map((row,index)=>new TableRow({tableHeader:index===0,children:row.map(value=>new TableCell({children:[new Paragraph({children:[new TextRun({text:value,bold:index===0})]})]}))}));const doc=new Document({sections:[{children:[new Paragraph({text:`Laporan ${type} SIMPATIK`,heading:HeadingLevel.TITLE}),new Paragraph({text:"Yayasan Ishlahul Ummah · Kota Sawahlunto"}),new Paragraph({text:subtitle}),new Paragraph({text:""}),new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:tableRows})]}]});downloadBlob(await Packer.toBlob(doc),"laporan-simpatik.docx");notify("Laporan Word berhasil diekspor.");}catch{notify("Laporan Word gagal dibuat.","error")}};
+  const exportPdf=async()=>{try{const {jsPDF}=await import("jspdf");const autoTable=(await import("jspdf-autotable")).default;const doc=new jsPDF({orientation:"landscape",unit:"mm",format:"a4"});doc.setFontSize(16);doc.text(`Laporan ${type} SIMPATIK`,14,16);doc.setFontSize(9);doc.text("Yayasan Ishlahul Ummah · Kota Sawahlunto",14,22);doc.text(subtitle,14,28);autoTable(doc,{head:[headers],body:rows,startY:34,theme:"grid",headStyles:{fillColor:[18,107,80]},styles:{fontSize:8,cellPadding:2},didDrawPage:data=>{if(data.pageNumber>1){doc.setFontSize(8);doc.text(`Laporan ${type} SIMPATIK · ${period}`,14,10)}}});doc.save("laporan-simpatik.pdf");notify("Laporan PDF berhasil diekspor.");}catch{notify("Laporan PDF gagal dibuat.","error")}};
+  const reset=()=>{setShown(false);setClassFilter("Semua Kelas");setSubject("Semua Mata Pelajaran")};
+  return <PageShell eyebrow="LAPORAN" title="Pusat Laporan" desc={`Tampilkan dan ekspor data ${role==="guru"?"sesuai penugasan Anda":"seluruh sekolah"}.`}><div className="card report-filter"><div className="card-head"><div><h2>Atur Laporan</h2><p>Pilih jenis laporan dan filter yang diperlukan.</p></div></div><div className="four-filters"><Field label="Jenis laporan"><select value={type} onChange={e=>setType(e.target.value)}><option>Data Siswa</option><option>Nilai</option><option>Kehadiran</option><option>Prestasi</option></select></Field><Field label="Kelas"><select value={classFilter} onChange={e=>setClassFilter(e.target.value)}><option>Semua Kelas</option><option>Kelas A</option><option>Kelas B</option><option>Kelas C</option></select></Field><Field label="Mata pelajaran"><select value={subject} onChange={e=>setSubject(e.target.value)}><option>Semua Mata Pelajaran</option><option>Matematika</option><option>IPA</option></select></Field><Field label="Periode"><select><option>{period}</option></select></Field></div><div className="report-actions"><Button variant="ghost" onClick={reset}>Reset Filter</Button><Button onClick={()=>setShown(true)}>Tampilkan Laporan</Button></div></div>
+  {shown?<div className="card table-card"><div className="card-head padded"><div><span className="eyebrow">PRATINJAU LAPORAN</span><h2>{type}</h2><p>{classFilter} · {period} · {filtered.length} data</p></div><div className="export-actions"><Button variant="secondary" icon="download" onClick={exportExcel}>Excel</Button><Button variant="secondary" onClick={exportWord}>Word</Button><Button variant="secondary" onClick={exportPdf}>PDF</Button></div></div><div className="active-filters"><span>Filter aktif:</span><Badge status={classFilter}/><Badge status={subject}/><Badge status={period}/></div>{filtered.length?<div className="table-wrap"><table><thead><tr>{headers.map(x=><th key={x}>{x}</th>)}</tr></thead><tbody>{filtered.map(s=><tr key={s.id}><td><strong>{s.name}</strong></td><td>{s.nis}</td><td>{s.className}</td><td>{s.current}</td><td>{s.attendance}%</td></tr>)}</tbody></table></div>:<Empty title="Tidak ada data" desc="Tidak ada data yang sesuai dengan filter aktif."/>}</div>:<div className="card"><Empty title="Laporan belum ditampilkan" desc="Atur filter di atas, lalu pilih Tampilkan Laporan untuk melihat pratinjau."/></div>}
   </PageShell>;
 }
 
 function SecurityPage({ role, logout, notify }: { role:Role;logout:()=>void;notify:(m:string)=>void }) {
   const [old,setOld]=useState("");const [next,setNext]=useState("");const [confirm,setConfirm]=useState("");const [error,setError]=useState("");
-  const storedUser = useMemo(() => {
-    try {
-      return JSON.parse(localStorage.getItem("user") || "{}");
-    } catch {
-      return {};
-    }
-  }, []);
-
-  const defaultName = role === "admin" ? "Rahmi Ananda" : role === "kepsek" ? "Drs. H. M. Ridwan, M.Pd." : "Bambang Sudarmanto, M.Pd.";
-  const defaultRoleLabel = role === "admin" ? "Administrator Sistem" : role === "kepsek" ? "Kepala Sekolah & Penanggung Jawab Akademik" : "Guru Matematika dan Wali Kelas";
-  const defaultEmail = role === "admin" ? "admin@simpatik.test" : role === "kepsek" ? "kepsek@simpatik.test" : "bambang@simpatik.test";
-  const roleBadge = role === "admin" ? "Admin" : role === "kepsek" ? "Kepala Sekolah" : "Guru";
-
-  const save=async(e:React.FormEvent)=>{e.preventDefault();if(next!==confirm)return setError("Konfirmasi password baru tidak cocok.");if(next.length<8||!/[a-zA-Z]/.test(next)||!/[0-9]/.test(next))return setError("Password baru minimal 8 karakter dan memuat huruf serta angka.");try { await api.changePassword(old,next);setError("");setOld("");setNext("");setConfirm("");notify("Password berhasil diubah."); } catch(error) { setError(error instanceof Error?error.message:"Gagal mengubah password."); }};
-  return <PageShell eyebrow="PENGATURAN" title="Akun dan Keamanan" desc="Kelola informasi akun dan keamanan akses Anda."><div className="settings-grid"><div className="card account-card"><div className="profile-head"><div className="avatar profile">{getInitials(storedUser.name || defaultName)}</div><div><h2>{storedUser.name || defaultName}</h2><p>{defaultRoleLabel}</p><Badge status={roleBadge}/></div></div><div className="account-info"><div><span>Email / Username</span><strong>{storedUser.email || defaultEmail}</strong></div><div><span>Peran</span><strong>{roleBadge}</strong></div><div><span>Status akun</span><strong>Aktif</strong></div><div><span>Sesi login</span><strong>Tervalidasi (JWT)</strong></div></div><Button variant="danger" icon="logout" onClick={logout}>Keluar dari Akun</Button></div><form className="card password-card" onSubmit={save}><div className="card-head"><div><h2>Ubah Password</h2><p>Gunakan kombinasi yang kuat dan mudah Anda ingat.</p></div></div><Field label="Password lama"><input type="password" value={old} onChange={e=>setOld(e.target.value)} required placeholder="Masukkan password saat ini"/></Field><Field label="Password baru"><input type="password" value={next} onChange={e=>setNext(e.target.value)} required placeholder="Minimal 8 karakter kombinasi"/><small>Minimal 8 karakter kombinasi huruf dan angka.</small></Field><Field label="Konfirmasi password baru"><input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} required placeholder="Ulangi password baru"/></Field>{error&&<div className="alert error"><Icon name="alert"/>{error}</div>}<Button type="submit">Simpan Password Baru</Button></form></div></PageShell>;
+  const save=(e:React.FormEvent)=>{e.preventDefault();if(old!==(role==="admin"?"admin123":"guru123"))return setError("Password lama yang Anda masukkan tidak sesuai.");if(next!==confirm)return setError("Konfirmasi password baru tidak cocok.");if(next.length<8)return setError("Password baru minimal 8 karakter.");setError("");setOld("");setNext("");setConfirm("");notify("Password berhasil diubah.");};
+  return <PageShell eyebrow="PENGATURAN" title="Akun dan Keamanan" desc="Kelola informasi akun dan keamanan akses Anda."><div className="settings-grid"><div className="card account-card"><div className="profile-head"><div className="avatar profile">{role==="admin"?"RA":"AS"}</div><div><h2>{role==="admin"?"Rahmi Ananda":"Andi Saputra, S.Pd."}</h2><p>{role==="admin"?"Administrator Sistem":"Guru Matematika dan IPA"}</p><Badge status={role==="admin"?"Admin":"Guru"}/></div></div><div className="account-info"><div><span>Username</span><strong>{role==="admin"?"admin":"guru"}</strong></div><div><span>Peran</span><strong>{role==="admin"?"Administrator":"Guru"}</strong></div><div><span>Status akun</span><strong>Aktif</strong></div><div><span>Login terakhir</span><strong>24 Feb 2025, 07.42</strong></div></div><Button variant="danger" icon="logout" onClick={logout}>Keluar dari Akun</Button></div><form className="card password-card" onSubmit={save}><div className="card-head"><div><h2>Ubah Password</h2><p>Gunakan kombinasi yang kuat dan mudah Anda ingat.</p></div></div><Field label="Password lama"><input type="password" value={old} onChange={e=>setOld(e.target.value)} required/></Field><Field label="Password baru"><input type="password" value={next} onChange={e=>setNext(e.target.value)} required/><small>Minimal 8 karakter.</small></Field><Field label="Konfirmasi password baru"><input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} required/></Field>{error&&<div className="alert error"><Icon name="alert"/>{error}</div>}<Button type="submit">Simpan Password Baru</Button></form></div></PageShell>;
 }
 
-function HelpPage() { return <PageShell eyebrow="BANTUAN" title="Pusat Bantuan" desc="Panduan singkat menggunakan SIMPATIK."><div className="help-grid">{[["Memulai dengan SIMPATIK","Kenali dashboard, navigasi, dan konteks periode."],["Mengelola data akademik","Panduan nilai, kehadiran, dan monitoring siswa."],["Prestasi siswa","Alur pengajuan, revisi, hingga verifikasi."],["Akun dan keamanan","Jaga keamanan akun dan ubah password Anda."]].map((x,i)=><button className="card help-card" key={x[0]}><div className="stat-icon tone-green"><Icon name={["grid","book","award","shield"][i]}/></div><div><h2>{x[0]}</h2><p>{x[1]}</p></div><Icon name="arrow"/></button>)}</div><div className="card support"><div><h2>Masih membutuhkan bantuan?</h2><p>Hubungi tim pengembang SIMPATIK Yayasan Ishlahul Ummah.</p></div><Button variant="secondary">Hubungi Administrator</Button></div></PageShell>; }
+function HelpPage() { return <PageShell eyebrow="BANTUAN" title="Pusat Bantuan" desc="Panduan singkat menggunakan SIMPATIK."><div className="help-grid">{[["Memulai dengan SIMPATIK","Kenali dashboard, navigasi, dan konteks periode."],["Mengelola data akademik","Panduan nilai, kehadiran, dan monitoring siswa."],["Prestasi siswa","Alur pengajuan, revisi, hingga verifikasi."],["Akun dan keamanan","Jaga keamanan akun dan ubah password Anda."]].map((x,i)=><button className="card help-card" key={x[0]}><div className="stat-icon tone-green"><Icon name={["grid","book","award","shield"][i]}/></div><div><h2>{x[0]}</h2><p>{x[1]}</p></div><Icon name="arrow"/></button>)}</div><div className="card support"><div><h2>Masih membutuhkan bantuan?</h2><p>Hubungi administrator Yayasan Ishlahul Ummah.</p></div><Button variant="secondary">Hubungi Administrator</Button></div></PageShell>; }
 function Empty({title,desc}:{title:string;desc:string}) { return <div className="empty"><div className="empty-icon"><Icon name="search"/></div><h3>{title}</h3><p>{desc}</p></div>; }
 function PageShell({eyebrow,title,desc,action,children}:{eyebrow:string;title:string;desc:string;action?:React.ReactNode;children:React.ReactNode}) { return <div className="page"><div className="page-title"><div><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{desc}</p></div>{action}</div>{children}</div>; }
 
 export default function App() {
-  const [role,setRole]=useState<Role|null>(null);
-  const [page,setPage]=useState<Page>("dashboard");
-  const [students,setStudents]=useState<Student[]>(studentsSeed);
-  const [achievements,setAchievements]=useState<Achievement[]>(achievementsSeed);
-  const [toast,setToast]=useState<Toast>(null);
-  const [sidebar,setSidebar]=useState(false);
-
-  const notify=(message:string,type:"success"|"error"="success")=>{setToast({message,type});window.setTimeout(()=>setToast(null),3500)};
-
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-    api.me().then((user) => {
-      const nextRole: Role = user.role === "ADMIN" ? "admin" : user.role === "KEPSEK" ? "kepsek" : "guru";
-      setRole(nextRole);
-      setPage(rolePages[nextRole][0]);
-    }).catch(() => {
-      api.logout();
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!role) return;
-    Promise.all([api.students(), api.achievements()])
-      .then(([remoteStudents, remoteAchievements]) => {
-        if (remoteStudents && remoteStudents.length > 0) {
-          setStudents(remoteStudents.map(mapStudent));
-        }
-        if (remoteAchievements && remoteAchievements.length > 0) {
-          setAchievements(remoteAchievements.map(mapAchievement));
-        }
-      })
-      .catch((error) => {
-        // Fallback gracefully without breaking the UI
-        console.warn("Gagal memuat data live dari server, menggunakan data cache/demo:", error);
-      });
-  }, [role]);
-
-  const menu=role==="admin"?adminMenu:role==="kepsek"?kepsekMenu:guruMenu;
-  const visiblePage = role && rolePages[role].includes(page) ? page : role ? rolePages[role][0] : "dashboard";
-  const title=menu.find(x=>x.page===visiblePage)?.label||"Dashboard";
-
-  const content=useMemo(()=>{
-    if(!role) return null;
-    switch(page){
-      case "dashboard": return <Dashboard role={role} students={students} achievements={achievements} go={setPage}/>;
-      case "students": return <StudentsPage role={role} students={students} setStudents={setStudents} notify={notify}/>;
-      case "teachers": case "classes": case "subjects": case "assignments": return <MasterPage type={page} notify={notify}/>;
-      case "grades": return <GradesPage students={students} setStudents={setStudents} notify={notify} readOnly={role === "kepsek"}/>;
-      case "attendance": return <AttendancePage students={students} setStudents={setStudents} notify={notify}/>;
-      case "achievements": return <AchievementsPage role={role} achievements={achievements} setAchievements={setAchievements} students={students} notify={notify}/>;
-      case "monitoring": return <MonitoringPage students={students}/>;
-      case "reports": return <ReportsPage role={role} students={students} notify={notify}/>;
-      case "security": return <SecurityPage role={role} logout={()=>{api.logout();setRole(null);setPage("dashboard")}} notify={notify}/>;
-      default: return <HelpPage/>;
-    }
-  },[role,visiblePage,students,achievements]);
-
-  if(!role) return <Login onLogin={(r)=>{setRole(r);setPage(r === "kepsek" ? "grades" : "dashboard")}}/>;
-
+  const [role,setRole]=useState<Role|null>(null); const [page,setPage]=useState<Page>("dashboard"); const [students,setStudents]=useState(studentsSeed); const [achievements,setAchievements]=useState(achievementsSeed); const [toast,setToast]=useState<Toast>(null); const [sidebar,setSidebar]=useState(false);
+  const [kkmByCourse,setKkmByCourse]=useState<Record<string,number>>({});
+  const [customTasks,setCustomTasks]=useState<Record<string,string[]>>({});
+  const [taskScores,setTaskScores]=useState<Record<string,Record<number,string>>>(()=>({"guru|Kelas A|Matematika|Genap 2024/2025|PTS":Object.fromEntries(studentsSeed.filter(s=>s.className==="Kelas A").map(s=>[s.id,String(s.current)]))}));
+  const notify=(message:string,type:"success"|"error"="success")=>{setToast({message,type});window.setTimeout(()=>setToast(null),3000)};
+  const logout=()=>{setRole(null);setPage("dashboard");setSidebar(false)};
+  const menu=role==="admin"?adminMenu:role==="guru"?guruMenu:kepsekMenu; const title=menu.find(x=>x.page===page)?.label||"Dashboard";
+  const content=useMemo(()=>{if(!role)return null;switch(page){
+    case "dashboard":return <Dashboard role={role} students={students} achievements={achievements} go={setPage}/>;
+    case "students":return <StudentsPage role={role} students={role==="guru"?students.filter(s=>s.className!=="Kelas C"):students} setStudents={setStudents} notify={notify}/>;
+    case "teachers":return role==="kepsek"?<ReadOnlyTeachersPage/>:<MasterPage type="teachers" notify={notify}/>;
+    case "classes":return role==="kepsek"?<ReadOnlyStructurePage/>:<MasterPage type="classes" notify={notify}/>;
+    case "subjects":case "assignments":return role==="kepsek"?<Dashboard role={role} students={students} achievements={achievements} go={setPage}/>:<MasterPage type={page} notify={notify}/>;
+    case "grades":return role==="kepsek"?<ReadOnlyGradesPage students={students}/>:role==="guru"?<GradesPage students={students} setStudents={setStudents} notify={notify} kkmByCourse={kkmByCourse} setKkmByCourse={setKkmByCourse} customTasks={customTasks} setCustomTasks={setCustomTasks} taskScores={taskScores} setTaskScores={setTaskScores}/>:<Dashboard role={role} students={students} achievements={achievements} go={setPage}/>;
+    case "attendance":return role==="kepsek"?<ReadOnlyAttendancePage students={students}/>:role==="guru"?<AttendancePage students={students} setStudents={setStudents} notify={notify}/>:<Dashboard role={role} students={students} achievements={achievements} go={setPage}/>;
+    case "achievements":return <AchievementsPage role={role} achievements={achievements} setAchievements={setAchievements} students={students} notify={notify}/>;
+    case "monitoring":return <MonitoringPage students={role==="guru"?students.filter(s=>s.className!=="Kelas C"):students}/>;
+    case "reports":return <ReportsPage role={role} students={role==="guru"?students.filter(s=>s.className!=="Kelas C"):students} notify={notify}/>;
+    case "security":return role==="kepsek"?<Dashboard role={role} students={students} achievements={achievements} go={setPage}/>:<SecurityPage role={role} logout={logout} notify={notify}/>;
+    default:return role==="kepsek"?<Dashboard role={role} students={students} achievements={achievements} go={setPage}/>:<HelpPage/>;
+  }},[role,page,students,achievements,kkmByCourse,customTasks,taskScores]);
+  if(!role)return <Login onLogin={(r)=>{setRole(r);setPage("dashboard")}}/>;
+  const roleLabel=role==="admin"?"Administrator":role==="guru"?"Guru":"Kepala Sekolah";
+  const personName=role==="admin"?"Rahmi Ananda":role==="guru"?"Andi Saputra":"Irwan Hakim";
+  const initials=role==="admin"?"RA":role==="guru"?"AS":"IH";
   let lastGroup="";
   return <div className="app-shell">
-    <aside className={`sidebar ${sidebar?"open":""}`}><div className="sidebar-brand"><div className="brand-logo">S</div><div><strong>SIMPATIK</strong><span>Yayasan Ishlahul Ummah</span></div><button className="sidebar-close" onClick={()=>setSidebar(false)}>×</button></div><div className="role-card"><div className="role-icon"><Icon name={role==="admin"?"shield":role==="kepsek"?"shield":"teacher"}/></div><div><span>Masuk sebagai</span><strong>{role==="admin"?"Administrator":role==="kepsek"?"Kepala Sekolah":"Guru"}</strong></div></div><nav>{menu.map(item=>{const group=item.group;const label=group&&group!==lastGroup?group:"";if(group)lastGroup=group;return <div key={item.page}>{label&&<div className="nav-group">{label}</div>}<button className={visiblePage===item.page?"active":""} onClick={()=>{setPage(item.page);setSidebar(false)}}><Icon name={item.icon}/><span>{item.label}</span>{visiblePage===item.page&&<i/>}</button></div>})}</nav><div className="sidebar-footer"><div className="foundation-mark">YIU</div><div><strong>Yayasan Ishlahul Ummah</strong><span>Kota Sawahlunto</span></div></div></aside>
+    <aside className={`sidebar ${sidebar?"open":""}`}><div className="sidebar-brand"><div className="brand-logo">S</div><div><strong>SIMPATIK</strong><span>Yayasan Ishlahul Ummah</span></div><button className="sidebar-close" onClick={()=>setSidebar(false)}>×</button></div><div className="role-card"><div className="role-icon"><Icon name={role==="guru"?"teacher":"shield"}/></div><div><span>Masuk sebagai</span><strong>{roleLabel}</strong></div></div><nav>{menu.map(item=>{const group=item.group;const label=group&&group!==lastGroup?group:"";if(group)lastGroup=group;return <div key={item.page}>{label&&<div className="nav-group">{label}</div>}<button className={page===item.page?"active":""} onClick={()=>{setPage(item.page);setSidebar(false)}}><Icon name={item.icon}/><span>{item.label}</span>{page===item.page&&<i/>}</button></div>})}</nav>{role==="kepsek"&&<button className="sidebar-logout" onClick={logout}><Icon name="logout"/><span>Keluar akun</span></button>}<div className="sidebar-footer"><div className="foundation-mark">YIU</div><div><strong>Yayasan Ishlahul Ummah</strong><span>Kota Sawahlunto</span></div></div></aside>
     {sidebar&&<div className="mobile-overlay" onClick={()=>setSidebar(false)}/>}
-    <div className="main-shell"><header className="topbar"><div className="topbar-left"><button className="menu-button" onClick={()=>setSidebar(true)} aria-label="Buka menu navigasi"><Icon name="menu"/></button><div className="breadcrumb"><span>SIMPATIK</span><Icon name="arrow" size={13}/><strong>{title}</strong></div></div><div className="topbar-right"><div className="period"><span>Tahun Ajaran / Semester</span><select><option>2024/2025 · Genap</option><option>2024/2025 · Ganjil</option></select></div><button className="notification" aria-label="Notifikasi"><Icon name="bell"/><i/></button><button className="user-menu" onClick={()=>setPage("security")}><div className="avatar">{role==="admin"?"RA":role==="kepsek"?"KS":"BS"}</div><div><strong>{role==="admin"?"Rahmi Ananda":role==="kepsek"?"Drs. H. M. Ridwan":"Bambang S."}</strong><span>{role==="admin"?"Administrator":role==="kepsek"?"Kepala Sekolah":"Guru"}</span></div><span>⌄</span></button></div></header><main className="content"><ErrorBoundary>{content}</ErrorBoundary></main></div>
+    <div className="main-shell"><header className="topbar"><div className="topbar-left"><button className="menu-button" onClick={()=>setSidebar(true)}><Icon name="menu"/></button><div className="breadcrumb"><span>SIMPATIK</span><Icon name="arrow" size={13}/><strong>{title}</strong></div></div><div className="topbar-right"><div className="period"><span>Tahun Ajaran / Semester</span><select><option>2024/2025 · Genap</option><option>2024/2025 · Ganjil</option></select></div><button className="notification"><Icon name="bell"/><i/></button><button className="user-menu" onClick={()=>role==="kepsek"?logout():setPage("security")} title={role==="kepsek"?"Keluar akun":"Buka pengaturan akun"}><div className="avatar">{initials}</div><div><strong>{personName}</strong><span>{roleLabel}</span></div><Icon name={role==="kepsek"?"logout":"arrow"} size={14}/></button></div></header><main className="content">{content}</main></div>
     {toast&&<div className={`toast ${toast.type}`}><div><Icon name={toast.type==="success"?"check":"alert"}/></div><span>{toast.message}</span><button onClick={()=>setToast(null)}>×</button></div>}
   </div>;
 }
