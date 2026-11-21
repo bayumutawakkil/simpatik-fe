@@ -302,22 +302,11 @@ function Login({ onLogin }: { onLogin: (role: Role) => void }) {
     else if (username === "kepsek.demo" && password === "KepsekDemo123!") onLogin("kepsek");
     else setError("Username atau password tidak sesuai. Silakan coba kembali.");
   };
-  const fill = (role: Role) => {
-    setUsername(role === "kepsek" ? "kepsek.demo" : role);
-    setPassword(
-      role === "admin"
-        ? "admin123"
-        : role === "guru"
-        ? "guru123"
-        : "KepsekDemo123!"
-    );
-    setError("");
-  };
   return (
     <div className="login-page">
       <div className="login-brand">
         <div className="brand-lockup">
-          <div className="brand-logo">S</div>
+          <img className="brand-logo" src="/sdit.png" alt="Yayasan Ishlahul Ummah" />
           <div>
             <strong>SIMPATIK</strong>
             <span>Yayasan Ishlahul Ummah</span>
@@ -336,7 +325,7 @@ function Login({ onLogin }: { onLogin: (role: Role) => void }) {
       <main className="login-panel">
         <div className="login-card">
           <div className="mobile-brand">
-            <div className="brand-logo">S</div>
+            <img className="brand-logo" src="/sdit.png" alt="Yayasan Ishlahul Ummah" />
             <strong>SIMPATIK</strong>
           </div>
           <span className="eyebrow">SELAMAT DATANG</span>
@@ -375,23 +364,6 @@ function Login({ onLogin }: { onLogin: (role: Role) => void }) {
             )}
             <Button type="submit">Masuk ke SIMPATIK</Button>
           </form>
-          <div className="demo-box">
-            <div>
-              <strong>Akun demo</strong>
-              <span>Pilih peran untuk mengisi kredensial</span>
-            </div>
-            <div className="demo-actions">
-              <Button variant="secondary" onClick={() => fill("admin")}>
-                Demo Admin
-              </Button>
-              <Button variant="secondary" onClick={() => fill("guru")}>
-                Demo Guru
-              </Button>
-              <Button variant="secondary" onClick={() => fill("kepsek")}>
-                Demo Kepsek
-              </Button>
-            </div>
-          </div>
           <p className="login-help">Butuh bantuan? Hubungi administrator sekolah.</p>
         </div>
       </main>
@@ -3078,7 +3050,7 @@ export default function App() {
             <div className="app-shell">
               <aside className={`sidebar ${sidebar ? "open" : ""}`}>
                 <div className="sidebar-brand">
-                  <div className="brand-logo">S</div>
+                  <img className="brand-logo" src="/sdit.png" alt="Yayasan Ishlahul Ummah" />
                   <div>
                     <strong>SIMPATIK</strong>
                     <span>Yayasan Ishlahul Ummah</span>

@@ -58,7 +58,7 @@ export function AppShell({
     <div className="app-shell">
       <aside className={`sidebar ${sidebar ? "open" : ""}`}>
         <div className="sidebar-brand">
-          <div className="brand-logo">S</div>
+          <img className="brand-logo" src="/sdit.png" alt="Yayasan Ishlahul Ummah" />
           <div>
             <strong>SIMPATIK</strong>
             <span>Yayasan Ishlahul Ummah</span>
